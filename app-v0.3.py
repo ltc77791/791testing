@@ -350,7 +350,7 @@ def section_admin():
 # --- Manager: 备件管理 ---
 def section_manager():
     st.header("📦 备件管理 (Manager)")
-    task = st.radio("业务流", ["库存查询与日志", "📷 扫码查询", "备件入库", "审批出库", "库存编辑", "备件类型管理", "批量导入/导出", "系统日志"], horizontal=True)
+    task = st.radio("业务流", ["库存查询与日志", "📷 扫码查询", "备件入库", "审批出库", "库存编辑", "备件类型管理", "批量导入/导出", "数据分析", "系统日志"], horizontal=True)
 
     # === v0.7 改造: 自动扫码 ===
     if task == "📷 扫码查询":
@@ -685,6 +685,154 @@ def section_manager():
                     st.success(f"新增 {succ}, 返还 {u_cnt}, 失败 {fail}")
                     log_action("Inbound", "批量导入", st.session_state.user, f"{succ}/{u_cnt}")
                 except Exception as e: st.error(str(e))
+
+    # === 数据分析模块 (Manager 专用) ===
+    elif task == "数据分析":
+        st.subheader("📊 数据分析")
+        ana_tab1, ana_tab2, ana_tab3 = st.tabs(["库存总览", "出入库趋势", "库龄与周转"])
+        conn = get_conn()
+        now = datetime.now()
+
+        # ---- 一、库存总览仪表盘 ----
+        with ana_tab1:
+            in_stock = conn.execute("SELECT COUNT(*) FROM inventory WHERE status=0").fetchone()[0]
+            out_stock = conn.execute("SELECT COUNT(*) FROM inventory WHERE status=1").fetchone()[0]
+            pending_cnt = conn.execute("SELECT COUNT(*) FROM requests WHERE status='pending'").fetchone()[0]
+            month_start = now.strftime("%Y-%m-01")
+            month_in = conn.execute("SELECT COUNT(*) FROM inventory WHERE inbound_time >= ?", (month_start,)).fetchone()[0]
+            month_out = conn.execute("SELECT COUNT(*) FROM requests WHERE status='approved' AND approved_time >= ?", (month_start,)).fetchone()[0]
+
+            k1, k2, k3, k4, k5 = st.columns(5)
+            k1.metric("在库总数", in_stock)
+            k2.metric("累计出库", out_stock)
+            k3.metric("待审批", pending_cnt)
+            k4.metric("本月入库", month_in)
+            k5.metric("本月出库", month_out)
+
+            st.divider()
+            col_a, col_b = st.columns(2)
+
+            with col_a:
+                st.write("**按子公司 / 仓库分布**")
+                df_dist = pd.read_sql("SELECT subsidiary as 子公司, warehouse as 仓库, COUNT(*) as 数量 FROM inventory WHERE status=0 GROUP BY subsidiary, warehouse ORDER BY 数量 DESC", conn)
+                if not df_dist.empty:
+                    st.dataframe(df_dist, use_container_width=True)
+                    chart_dist = df_dist.copy()
+                    chart_dist['位置'] = chart_dist['子公司'] + ' / ' + chart_dist['仓库']
+                    st.bar_chart(chart_dist.set_index('位置')['数量'])
+                else:
+                    st.info("暂无库存数据")
+
+            with col_b:
+                st.write("**按备件类型分布**")
+                df_type = pd.read_sql("SELECT i.part_no as 备件号, t.part_name as 备件名称, COUNT(*) as 在库数量 FROM inventory i LEFT JOIN part_types t ON i.part_no=t.part_no WHERE i.status=0 GROUP BY i.part_no ORDER BY 在库数量 DESC", conn)
+                if not df_type.empty:
+                    st.dataframe(df_type, use_container_width=True)
+                    st.bar_chart(df_type.set_index('备件号')['在库数量'])
+                else:
+                    st.info("暂无库存数据")
+
+        # ---- 二、出入库趋势分析 ----
+        with ana_tab2:
+            st.write("**月度出入库趋势**")
+            # 入库按月统计
+            df_in_monthly = pd.read_sql("SELECT strftime('%%Y-%%m', inbound_time) as 月份, COUNT(*) as 入库量 FROM inventory WHERE inbound_time IS NOT NULL GROUP BY 月份 ORDER BY 月份", conn)
+            # 出库按月统计（以审批时间为准）
+            df_out_monthly = pd.read_sql("SELECT strftime('%%Y-%%m', approved_time) as 月份, SUM(qty) as 出库量 FROM requests WHERE status='approved' AND approved_time IS NOT NULL GROUP BY 月份 ORDER BY 月份", conn)
+
+            if not df_in_monthly.empty or not df_out_monthly.empty:
+                df_trend = pd.merge(df_in_monthly, df_out_monthly, on='月份', how='outer').fillna(0).sort_values('月份')
+                df_trend['入库量'] = df_trend['入库量'].astype(int)
+                df_trend['出库量'] = df_trend['出库量'].astype(int)
+                st.dataframe(df_trend, use_container_width=True)
+                st.line_chart(df_trend.set_index('月份'))
+            else:
+                st.info("暂无出入库记录")
+
+            st.divider()
+            col_c, col_d = st.columns(2)
+
+            with col_c:
+                st.write("**备件消耗排行 Top 10**")
+                months_back = st.selectbox("统计周期", ["近 3 个月", "近 6 个月", "近 12 个月", "全部"], key="consume_period")
+                period_map = {"近 3 个月": 3, "近 6 个月": 6, "近 12 个月": 12, "全部": 0}
+                m = period_map[months_back]
+                if m > 0:
+                    cutoff = (now - timedelta(days=m * 30)).strftime("%Y-%m-%d")
+                    df_consume = pd.read_sql(f"SELECT r.part_no as 备件号, t.part_name as 备件名称, SUM(r.qty) as 出库总量 FROM requests r LEFT JOIN part_types t ON r.part_no=t.part_no WHERE r.status='approved' AND r.approved_time >= '{cutoff}' GROUP BY r.part_no ORDER BY 出库总量 DESC LIMIT 10", conn)
+                else:
+                    df_consume = pd.read_sql("SELECT r.part_no as 备件号, t.part_name as 备件名称, SUM(r.qty) as 出库总量 FROM requests r LEFT JOIN part_types t ON r.part_no=t.part_no WHERE r.status='approved' GROUP BY r.part_no ORDER BY 出库总量 DESC LIMIT 10", conn)
+                if not df_consume.empty:
+                    st.dataframe(df_consume, use_container_width=True)
+                    st.bar_chart(df_consume.set_index('备件号')['出库总量'])
+                else:
+                    st.info("暂无出库记录")
+
+            with col_d:
+                st.write("**项目用量统计**")
+                df_proj = pd.read_sql("SELECT project_location as 项目地, SUM(qty) as 出库总量, COUNT(*) as 申请次数 FROM requests WHERE status='approved' GROUP BY project_location ORDER BY 出库总量 DESC", conn)
+                if not df_proj.empty:
+                    st.dataframe(df_proj, use_container_width=True)
+                    st.bar_chart(df_proj.set_index('项目地')['出库总量'])
+                else:
+                    st.info("暂无出库记录")
+
+        # ---- 四、库龄与周转分析 ----
+        with ana_tab3:
+            st.write("**库龄分布**")
+            df_age = pd.read_sql("SELECT i.part_no, t.part_name, i.serial_number, i.subsidiary, i.warehouse, i.inbound_time FROM inventory i LEFT JOIN part_types t ON i.part_no=t.part_no WHERE i.status=0 AND i.inbound_time IS NOT NULL", conn)
+            if not df_age.empty:
+                df_age['入库时间'] = pd.to_datetime(df_age['inbound_time'])
+                df_age['库龄(天)'] = (now - df_age['入库时间']).dt.days
+
+                def age_bucket(d):
+                    if d <= 30: return '0-30天'
+                    elif d <= 90: return '31-90天'
+                    elif d <= 180: return '91-180天'
+                    else: return '180天以上'
+                df_age['库龄段'] = df_age['库龄(天)'].apply(age_bucket)
+
+                bucket_order = ['0-30天', '31-90天', '91-180天', '180天以上']
+                age_summary = df_age['库龄段'].value_counts().reindex(bucket_order, fill_value=0)
+                col_e, col_f = st.columns(2)
+                with col_e:
+                    st.dataframe(age_summary.reset_index().rename(columns={'index': '库龄段', '库龄段': '库龄段', 'count': '数量'}), use_container_width=True)
+                with col_f:
+                    st.bar_chart(age_summary)
+
+                # 呆滞预警
+                st.divider()
+                stale_days = st.slider("呆滞预警天数阈值", 30, 365, 90, step=30, key="stale_thresh")
+                df_stale = df_age[df_age['库龄(天)'] >= stale_days][['part_no', 'part_name', 'serial_number', 'subsidiary', 'warehouse', '库龄(天)']].sort_values('库龄(天)', ascending=False)
+                df_stale.columns = ['备件号', '备件名称', '序列号', '子公司', '仓库', '库龄(天)']
+                if not df_stale.empty:
+                    st.warning(f"共 {len(df_stale)} 件备件超过 {stale_days} 天未出库")
+                    paginated_dataframe(df_stale.reset_index(drop=True), "stale_list")
+                else:
+                    st.success(f"无超过 {stale_days} 天的呆滞库存")
+            else:
+                st.info("暂无在库备件或缺少入库时间数据")
+
+            # 周转率
+            st.divider()
+            st.write("**备件周转率**（近 6 个月）")
+            cutoff_6m = (now - timedelta(days=180)).strftime("%Y-%m-%d")
+            df_turnover_out = pd.read_sql(f"SELECT r.part_no, SUM(r.qty) as 出库量 FROM requests r WHERE r.status='approved' AND r.approved_time >= '{cutoff_6m}' GROUP BY r.part_no", conn)
+            df_turnover_inv = pd.read_sql("SELECT part_no, COUNT(*) as 在库量 FROM inventory WHERE status=0 GROUP BY part_no", conn)
+            if not df_turnover_out.empty:
+                df_turnover = pd.merge(df_turnover_out, df_turnover_inv, on='part_no', how='left').fillna(0)
+                df_turnover['在库量'] = df_turnover['在库量'].astype(int)
+                names = pd.read_sql("SELECT part_no, part_name FROM part_types", conn)
+                df_turnover = pd.merge(df_turnover, names, on='part_no', how='left')
+                df_turnover['周转率'] = df_turnover.apply(lambda r: round(r['出库量'] / r['在库量'], 2) if r['在库量'] > 0 else float('inf'), axis=1)
+                df_turnover = df_turnover[['part_no', 'part_name', '出库量', '在库量', '周转率']].sort_values('周转率', ascending=False)
+                df_turnover.columns = ['备件号', '备件名称', '6个月出库量', '当前在库', '周转率']
+                st.dataframe(df_turnover, use_container_width=True)
+                st.caption("周转率 = 出库量 / 当前在库量 | inf 表示已无库存但有出库记录（高周转）")
+            else:
+                st.info("近 6 个月暂无出库记录")
+
+        conn.close()
 
     # D12: 统一系统日志查询面板
     elif task == "系统日志":
