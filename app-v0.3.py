@@ -454,36 +454,48 @@ def section_manager():
         if pending.empty: st.info("无待审批申请")
         else:
             for idx, row in pending.iterrows():
-                req_sns = row.get('requested_sns', 'NA')
                 with st.expander(f"申请 #{row['id']} | {row['applicant']} | {row['part_no']} x {row['qty']}"):
-                    st.write(f"**申领地**: {row['project_location']}")
-                    st.info(f"**预选序列号**: {req_sns}")
+                    st.write(f"**申请人**: {row['applicant']}　|　**项目/用途**: {row['project_location']}　|　**申请时间**: {row['timestamp']}")
+                    st.write(f"**备件号**: {row['part_no']}　|　**申请数量**: {row['qty']}")
+
+                    # 查询该备件号的可用库存供 Manager 选择
                     conn_c = get_conn()
-                    t_sns = req_sns.split(",") if req_sns and req_sns!='NA' else []
-                    if t_sns:
-                        ph = ",".join(["?"]*len(t_sns))
-                        valid = pd.read_sql(f"SELECT serial_number FROM inventory WHERE serial_number IN ({ph}) AND status=0", conn_c, params=t_sns)['serial_number'].tolist()
-                    else: valid=[]
+                    avail_sns = pd.read_sql(f"SELECT serial_number, subsidiary, warehouse, condition FROM inventory WHERE part_no='{row['part_no']}' AND status=0 AND (reserved_request_id IS NULL OR reserved_request_id=0)", conn_c)
                     conn_c.close()
-                    if len(valid)<len(t_sns): st.error("部分备件已不在库！")
+
+                    if avail_sns.empty:
+                        st.error(f"⚠️ 备件号 {row['part_no']} 当前无可用库存")
+                    else:
+                        st.write(f"📦 **可用库存** (共 {len(avail_sns)} 件):")
+                        st.dataframe(avail_sns, use_container_width=True)
+
+                    # Manager 选择要下发的具体 SN
+                    sn_options = [f"{r['serial_number']} | {r['subsidiary']} | {r['warehouse']} ({r['condition']})" for _, r in avail_sns.iterrows()] if not avail_sns.empty else []
+                    selected = st.multiselect(f"选择下发的序列号（需 {row['qty']} 件）", sn_options, key=f"sel_sns_{row['id']}")
+                    selected_sns = [s.split(" | ")[0] for s in selected]
 
                     # C8: 审批确认
                     confirm_approve = st.checkbox("确认批准此申请", key=f"cfm_ap{row['id']}")
                     c_a, c_r = st.columns([1,1])
                     if c_a.button("✅ 批准", key=f"ap{row['id']}"):
-                        if not confirm_approve:
+                        if not selected_sns:
+                            st.warning("请先选择要下发的序列号")
+                        elif len(selected_sns) != row['qty']:
+                            st.warning(f"已选 {len(selected_sns)} 件，申请数量为 {row['qty']} 件，请调整")
+                        elif not confirm_approve:
                             st.warning("请先勾选确认框")
                         else:
                             now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             c = get_conn()
-                            # D14: 记录审批时间
-                            c.execute("UPDATE requests SET status='approved', approved_sns=?, approver=?, approved_time=? WHERE id=?", (req_sns, st.session_state.user, now_str, row['id']))
-                            for s in t_sns:
-                                # B6: 清除预留标记
-                                c.execute("UPDATE inventory SET status=1, outbound_time=?, receiver=?, approver=?, project_location=?, reserved_request_id=0 WHERE serial_number=?", (now_str, row['applicant'], st.session_state.user, row['project_location'], s))
+                            approved_sns_str = ",".join(selected_sns)
+                            c.execute("UPDATE requests SET status='approved', approved_sns=?, approver=?, approved_time=? WHERE id=?",
+                                      (approved_sns_str, st.session_state.user, now_str, row['id']))
+                            for s in selected_sns:
+                                c.execute("UPDATE inventory SET status=1, outbound_time=?, receiver=?, approver=?, project_location=? WHERE serial_number=?",
+                                          (now_str, row['applicant'], st.session_state.user, row['project_location'], s))
                             c.commit()
                             c.close()
-                            log_action("Outbound", "批准", st.session_state.user, f"ID:{row['id']}")
+                            log_action("Outbound", "批准", st.session_state.user, f"ID:{row['id']} SN:{approved_sns_str}")
                             st.rerun()
 
                     # B5: 驳回原因
@@ -494,10 +506,8 @@ def section_manager():
                         else:
                             now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             c = get_conn()
-                            c.execute("UPDATE requests SET status='rejected', approver=?, reject_reason=?, approved_time=? WHERE id=?", (st.session_state.user, reject_reason.strip(), now_str, row['id']))
-                            # B6: 释放预留
-                            for s in t_sns:
-                                c.execute("UPDATE inventory SET reserved_request_id=0 WHERE serial_number=? AND reserved_request_id=?", (s, row['id']))
+                            c.execute("UPDATE requests SET status='rejected', approver=?, reject_reason=?, approved_time=? WHERE id=?",
+                                      (st.session_state.user, reject_reason.strip(), now_str, row['id']))
                             c.commit()
                             c.close()
                             log_action("Outbound", "驳回", st.session_state.user, f"ID:{row['id']} 原因:{reject_reason.strip()}")
@@ -717,49 +727,34 @@ def section_operator():
         conn = get_conn()
         types = pd.read_sql("SELECT part_no, part_name FROM part_types", conn)
         conn.close()
-        sel = st.selectbox("1. 选择备件", ["--"] + [f"{r['part_no']} | {r['part_name']}" for _, r in types.iterrows()])
+        sel = st.selectbox("1. 选择备件类型", ["--"] + [f"{r['part_no']} | {r['part_name']}" for _, r in types.iterrows()])
         if sel != "--":
             p = sel.split(" | ")[0]
             conn = get_conn()
-            # B6: 排除已被预留的库存
-            subs = pd.read_sql(f"SELECT DISTINCT subsidiary FROM inventory WHERE part_no='{p}' AND status=0 AND (reserved_request_id IS NULL OR reserved_request_id=0)", conn)
+            avail = conn.execute("SELECT COUNT(*) FROM inventory WHERE part_no=? AND status=0", (p,)).fetchone()[0]
             conn.close()
-            if not subs.empty:
-                ss = st.selectbox("2. 子公司", subs['subsidiary'])
-                conn = get_conn()
-                whs = pd.read_sql(f"SELECT DISTINCT warehouse FROM inventory WHERE part_no='{p}' AND subsidiary='{ss}' AND status=0 AND (reserved_request_id IS NULL OR reserved_request_id=0)", conn)
-                conn.close()
-                sw = st.selectbox("3. 仓库", whs['warehouse'])
-                conn = get_conn()
-                # B6: 只显示未被预留的 SN
-                sns = pd.read_sql(f"SELECT serial_number, condition FROM inventory WHERE part_no='{p}' AND subsidiary='{ss}' AND warehouse='{sw}' AND status=0 AND (reserved_request_id IS NULL OR reserved_request_id=0)", conn)
-                conn.close()
-                opts = [f"{r['serial_number']} ({r['condition']})" for _, r in sns.iterrows()]
-                with st.form("req"):
-                    sls = st.multiselect("4. 勾选序列号", opts)
-                    loc = st.text_input("项目")
-                    if st.form_submit_button("提交"):
-                        if sls and loc:
-                            rs = [x.split(" (")[0] for x in sls]
-                            c = get_conn()
-                            cursor = c.cursor()
-                            cursor.execute("INSERT INTO requests (part_no, qty, project_location, applicant, timestamp, requested_sns) VALUES (?,?,?,?,?,?)", (p, len(rs), loc, st.session_state.user, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ",".join(rs)))
-                            req_id = cursor.lastrowid
-                            # B6: 标记预留
-                            for s in rs:
-                                c.execute("UPDATE inventory SET reserved_request_id=? WHERE serial_number=? AND status=0", (req_id, s))
-                            c.commit()
-                            c.close()
-                            st.success("提交成功，序列号已锁定等待审批")
-                            log_action("Outbound", "申请出库", st.session_state.user, f"{p} SN:{','.join(rs)} 项目:{loc}")
-                        else:
-                            st.error("请选择序列号并填写项目")
-            else: st.warning("无可用库存")
+            st.info(f"当前可用库存: **{avail}** 件（具体备件由审批人在批准时分配）")
+            with st.form("req"):
+                qty = st.number_input("2. 申请数量", min_value=1, max_value=max(avail, 1), value=1)
+                loc = st.text_input("3. 项目/用途")
+                if st.form_submit_button("提交申请"):
+                    if not loc:
+                        st.error("请填写项目/用途")
+                    elif qty > avail:
+                        st.error(f"申请数量 ({qty}) 超过可用库存 ({avail})")
+                    else:
+                        c = get_conn()
+                        c.execute("INSERT INTO requests (part_no, qty, project_location, applicant, timestamp) VALUES (?,?,?,?,?)",
+                                  (p, qty, loc, st.session_state.user, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                        c.commit()
+                        c.close()
+                        st.success(f"申请已提交！备件号: {p}，数量: {qty}，等待审批人分配具体备件")
+                        log_action("Outbound", "申请出库", st.session_state.user, f"{p} x{qty} 项目:{loc}")
 
     with tab2:
         conn = get_conn()
-        # C11: 增强历史记录展示字段
-        df = pd.read_sql(f"SELECT r.id as 申请ID, r.timestamp as 申请时间, r.part_no as 备件号, t.part_name as 备件名称, r.qty as 数量, r.requested_sns as 预选序列号, r.status as 状态, r.project_location as 项目地, r.approver as 审批人, r.approved_time as 审批时间, r.reject_reason as 驳回原因 FROM requests r LEFT JOIN part_types t ON r.part_no=t.part_no WHERE r.applicant='{st.session_state.user}' ORDER BY r.timestamp DESC", conn).fillna('')
+        # C11: 增强历史记录展示字段（新流程：SN 由审批人分配，显示批准序列号）
+        df = pd.read_sql(f"SELECT r.id as 申请ID, r.timestamp as 申请时间, r.part_no as 备件号, t.part_name as 备件名称, r.qty as 数量, r.status as 状态, r.project_location as 项目地, r.approved_sns as 批准序列号, r.approver as 审批人, r.approved_time as 审批时间, r.reject_reason as 驳回原因 FROM requests r LEFT JOIN part_types t ON r.part_no=t.part_no WHERE r.applicant='{st.session_state.user}' ORDER BY r.timestamp DESC", conn).fillna('')
         conn.close()
         paginated_dataframe(df, "op_history", style_func=status_highlight, style_subset=['状态'])
 
@@ -772,7 +767,6 @@ def section_operator():
                 for _, row in pending_df.iterrows():
                     rid = row['申请ID']
                     with st.expander(f"申请 #{rid} | {row['备件号']} x {row['数量']} | {row['项目地']}"):
-                        st.write(f"**预选序列号**: {row['预选序列号']}")
                         st.write(f"**申请时间**: {row['申请时间']}")
                         # C8: 撤回确认
                         confirm_cancel = st.checkbox(f"确认撤回申请 #{rid}", key=f"cfm_cancel_{rid}")
@@ -783,15 +777,10 @@ def section_operator():
                                 conn = get_conn()
                                 now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                                 conn.execute("UPDATE requests SET status='cancelled', approved_time=? WHERE id=?", (now_str, rid))
-                                # B6: 释放预留
-                                sns_str = row['预选序列号']
-                                if sns_str:
-                                    for s in sns_str.split(","):
-                                        conn.execute("UPDATE inventory SET reserved_request_id=0 WHERE serial_number=? AND reserved_request_id=?", (s.strip(), rid))
                                 conn.commit()
                                 conn.close()
                                 log_action("Outbound", "撤回申请", st.session_state.user, f"ID:{rid}")
-                                st.success("申请已撤回，序列号已释放")
+                                st.success("申请已撤回")
                                 st.rerun()
 
     # === v0.7 改造: 自动扫码 ===
