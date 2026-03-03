@@ -6,6 +6,7 @@ import os
 from datetime import datetime, timedelta
 import time
 import math
+import random
 
 # === 容错导入 OpenCV ===
 try:
@@ -54,6 +55,13 @@ def check_and_migrate_db():
         if 'approved_time' not in req_cols:
             c.execute("ALTER TABLE requests ADD COLUMN approved_time TEXT")
             conn.commit()
+
+        # 安全库存字段
+        c.execute("PRAGMA table_info(part_types)")
+        pt_cols = [info[1] for info in c.fetchall()]
+        if 'min_stock' not in pt_cols:
+            c.execute("ALTER TABLE part_types ADD COLUMN min_stock INTEGER DEFAULT 0")
+            conn.commit()
     except Exception as e:
         print(f"数据库检查警告: {e}")
     finally:
@@ -71,7 +79,8 @@ def init_system():
 
     c.execute('''CREATE TABLE IF NOT EXISTS part_types (
         part_no TEXT PRIMARY KEY,
-        part_name TEXT
+        part_name TEXT,
+        min_stock INTEGER DEFAULT 0
     )''')
 
     c.execute('''CREATE TABLE IF NOT EXISTS inventory (
@@ -139,6 +148,80 @@ def log_action(category, action, operator, details):
         conn.commit()
     finally:
         conn.close()
+
+def load_demo_data():
+    """一键加载演示数据"""
+    conn = get_conn()
+    existing = conn.execute("SELECT COUNT(*) FROM inventory").fetchone()[0]
+    if existing > 0:
+        conn.close()
+        return False
+    now = datetime.now()
+    part_types_data = [
+        ('PWR-MOD-500', '500W电源模块', 10),
+        ('SFP-10G-SR', '10G光模块', 15),
+        ('FAN-MOD-4HS', '高速风扇模块', 8),
+        ('HDD-SAS-1T', '1TB SAS硬盘', 5),
+        ('MEM-DDR4-32G', '32GB DDR4内存条', 12),
+    ]
+    subsidiaries = ['华东子公司', '华南子公司', '华北子公司']
+    wh_map = {
+        '华东子公司': ['上海主仓', '南京分仓'],
+        '华南子公司': ['深圳主仓', '广州分仓'],
+        '华北子公司': ['北京主仓'],
+    }
+    conditions = ['全新', '利旧/返还']
+    projects = ['张江IDC扩容', '南山5G基站', '亦庄新机房', '虹桥网络改造', '科技园设备更换']
+    operators = ['张伟', '李娜', '王强', '刘洋']
+    for pno, pname, ms in part_types_data:
+        conn.execute("INSERT OR IGNORE INTO part_types (part_no, part_name, min_stock) VALUES (?,?,?)", (pno, pname, ms))
+    for op in operators:
+        conn.execute("INSERT OR IGNORE INTO users (username, password, roles) VALUES (?,?,?)",
+                     (op, hashlib.sha256("123456".encode()).hexdigest(), 'operator'))
+    sn_counter = 1000
+    inv_ids = []
+    for pno, pname, _ in part_types_data:
+        count = random.randint(12, 22)
+        for _ in range(count):
+            sn = f"SN{sn_counter:06d}"
+            sn_counter += 1
+            sub = random.choice(subsidiaries)
+            wh = random.choice(wh_map[sub])
+            cond = random.choices(conditions, weights=[70, 30])[0]
+            days_ago = random.randint(1, 240)
+            inbound_time = (now - timedelta(days=days_ago)).strftime("%Y-%m-%d %H:%M:%S")
+            cur = conn.execute(
+                "INSERT INTO inventory (part_no, serial_number, subsidiary, warehouse, inbound_time, status, inbound_operator, condition, reserved_request_id) VALUES (?,?,?,?,?,0,?,?,0)",
+                (pno, sn, sub, wh, inbound_time, 'system', cond))
+            inv_ids.append((cur.lastrowid, pno, sn))
+    random.shuffle(inv_ids)
+    for i in range(min(30, len(inv_ids) // 3)):
+        inv_id, pno, sn = inv_ids[i]
+        applicant = random.choice(operators)
+        project = random.choice(projects)
+        days_ago = random.randint(5, 150)
+        req_time = (now - timedelta(days=days_ago)).strftime("%Y-%m-%d %H:%M:%S")
+        appr_time = (now - timedelta(days=max(0, days_ago - random.randint(1, 3)))).strftime("%Y-%m-%d %H:%M:%S")
+        conn.execute("INSERT INTO requests (part_no, qty, project_location, applicant, status, approved_sns, approver, timestamp, approved_time) VALUES (?,?,?,?,?,?,?,?,?)",
+                     (pno, 1, project, applicant, 'approved', sn, 'admin', req_time, appr_time))
+        conn.execute("UPDATE inventory SET status=1, outbound_time=?, receiver=?, approver=?, project_location=? WHERE id=?",
+                     (appr_time, applicant, 'admin', project, inv_id))
+    for _ in range(3):
+        pno = random.choice(part_types_data)[0]
+        conn.execute("INSERT INTO requests (part_no, qty, project_location, applicant, status, timestamp) VALUES (?,?,?,?,?,?)",
+                     (pno, random.randint(1, 3), random.choice(projects), random.choice(operators), 'pending',
+                      (now - timedelta(days=random.randint(0, 3))).strftime("%Y-%m-%d %H:%M:%S")))
+    for _ in range(2):
+        pno = random.choice(part_types_data)[0]
+        days_ago = random.randint(10, 60)
+        conn.execute("INSERT INTO requests (part_no, qty, project_location, applicant, status, approver, timestamp, approved_time, reject_reason) VALUES (?,?,?,?,?,?,?,?,?)",
+                     (pno, random.randint(1, 2), random.choice(projects), random.choice(operators), 'rejected', 'admin',
+                      (now - timedelta(days=days_ago)).strftime("%Y-%m-%d %H:%M:%S"),
+                      (now - timedelta(days=days_ago - 1)).strftime("%Y-%m-%d %H:%M:%S"),
+                      '库存不足，等待采购'))
+    conn.commit()
+    conn.close()
+    return True
 
 # E16: 状态高亮函数（使用 map 替代已废弃的 applymap）
 def status_highlight(v):
@@ -350,6 +433,17 @@ def section_admin():
 # --- Manager: 备件管理 ---
 def section_manager():
     st.header("📦 备件管理 (Manager)")
+
+    # 待处理申请持续提醒
+    conn_notify = get_conn()
+    pending_reqs = pd.read_sql("SELECT id, part_no, qty, applicant, timestamp FROM requests WHERE status='pending' ORDER BY timestamp", conn_notify)
+    conn_notify.close()
+    if not pending_reqs.empty:
+        st.warning(f"🔔 当前有 **{len(pending_reqs)}** 条待审批出库申请，请前往「审批出库」及时处理！")
+        with st.expander("查看待审批摘要"):
+            for _, r in pending_reqs.iterrows():
+                st.write(f"• 申请 #{r['id']} | {r['applicant']} 申请 {r['part_no']} ×{r['qty']} | {r['timestamp']}")
+
     task = st.radio("业务流", ["库存查询与日志", "📷 扫码查询", "备件入库", "审批出库", "库存编辑", "备件类型管理", "批量导入/导出", "数据分析", "系统日志"], horizontal=True)
 
     # === v0.7 改造: 自动扫码 ===
@@ -474,20 +568,25 @@ def section_manager():
                     selected = st.multiselect(f"选择下发的序列号（需 {row['qty']} 件）", sn_options, key=f"sel_sns_{row['id']}")
                     selected_sns = [s.split(" | ")[0] for s in selected]
 
+                    # 部分批准提示
+                    if selected_sns and len(selected_sns) < row['qty']:
+                        st.info(f"📋 部分批准：申请 {row['qty']} 件，当前选择 {len(selected_sns)} 件")
+
                     # C8: 审批确认
                     confirm_approve = st.checkbox("确认批准此申请", key=f"cfm_ap{row['id']}")
                     c_a, c_r = st.columns([1,1])
                     if c_a.button("✅ 批准", key=f"ap{row['id']}"):
                         if not selected_sns:
                             st.warning("请先选择要下发的序列号")
-                        elif len(selected_sns) != row['qty']:
-                            st.warning(f"已选 {len(selected_sns)} 件，申请数量为 {row['qty']} 件，请调整")
+                        elif len(selected_sns) > row['qty']:
+                            st.warning(f"已选 {len(selected_sns)} 件，超过申请数量 {row['qty']} 件，请减少选择")
                         elif not confirm_approve:
                             st.warning("请先勾选确认框")
                         else:
                             now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             c = get_conn()
                             approved_sns_str = ",".join(selected_sns)
+                            partial_note = f" (部分批准:{len(selected_sns)}/{row['qty']})" if len(selected_sns) < row['qty'] else ""
                             c.execute("UPDATE requests SET status='approved', approved_sns=?, approver=?, approved_time=? WHERE id=?",
                                       (approved_sns_str, st.session_state.user, now_str, row['id']))
                             for s in selected_sns:
@@ -495,7 +594,7 @@ def section_manager():
                                           (now_str, row['applicant'], st.session_state.user, row['project_location'], s))
                             c.commit()
                             c.close()
-                            log_action("Outbound", "批准", st.session_state.user, f"ID:{row['id']} SN:{approved_sns_str}")
+                            log_action("Outbound", "批准" + partial_note, st.session_state.user, f"ID:{row['id']} SN:{approved_sns_str}")
                             st.rerun()
 
                     # B5: 驳回原因
@@ -565,17 +664,18 @@ def section_manager():
     elif task == "备件类型管理":
         st.subheader("🏷️ 备件类型管理")
         conn = get_conn()
-        types_df = pd.read_sql("SELECT t.part_no, t.part_name, COUNT(CASE WHEN i.status=0 THEN 1 END) as 在库数量, COUNT(i.id) as 历史总数 FROM part_types t LEFT JOIN inventory i ON t.part_no=i.part_no GROUP BY t.part_no, t.part_name", conn)
+        types_df = pd.read_sql("SELECT t.part_no, t.part_name, t.min_stock as 安全库存, COUNT(CASE WHEN i.status=0 THEN 1 END) as 在库数量, COUNT(i.id) as 历史总数 FROM part_types t LEFT JOIN inventory i ON t.part_no=i.part_no GROUP BY t.part_no, t.part_name, t.min_stock", conn)
         conn.close()
 
         st.dataframe(types_df, use_container_width=True)
 
-        t_add, t_edit, t_del = st.tabs(["新增类型", "修改名称", "删除类型"])
+        t_add, t_edit, t_del = st.tabs(["新增类型", "修改类型", "删除类型"])
 
         with t_add:
             with st.form("add_type"):
                 new_pno = st.text_input("新备件号")
                 new_pname = st.text_input("新备件名称")
+                new_min_stock = st.number_input("安全库存量", min_value=0, value=0, help="低于此数量时触发预警")
                 if st.form_submit_button("新增"):
                     if not new_pno or not new_pname:
                         st.error("备件号和名称不能为空")
@@ -585,9 +685,9 @@ def section_manager():
                         if ex:
                             st.error(f"备件号 {new_pno} 已存在")
                         else:
-                            conn.execute("INSERT INTO part_types VALUES (?,?)", (new_pno, new_pname))
+                            conn.execute("INSERT INTO part_types (part_no, part_name, min_stock) VALUES (?,?,?)", (new_pno, new_pname, new_min_stock))
                             conn.commit()
-                            log_action("PartType", "新增类型", st.session_state.user, f"{new_pno}: {new_pname}")
+                            log_action("PartType", "新增类型", st.session_state.user, f"{new_pno}: {new_pname} 安全库存:{new_min_stock}")
                             st.success(f"备件类型 {new_pno} 创建成功")
                             st.rerun()
                         conn.close()
@@ -596,15 +696,17 @@ def section_manager():
             if not types_df.empty:
                 edit_pno = st.selectbox("选择备件号", types_df['part_no'].tolist(), key="edit_type_sel")
                 old_name = types_df[types_df['part_no']==edit_pno]['part_name'].values[0]
+                old_min = types_df[types_df['part_no']==edit_pno]['安全库存'].values[0]
                 with st.form("edit_type"):
-                    new_name = st.text_input("新名称", value=old_name)
+                    new_name = st.text_input("备件名称", value=old_name)
+                    new_min = st.number_input("安全库存量", min_value=0, value=int(old_min), help="低于此数量时触发预警")
                     if st.form_submit_button("保存修改"):
-                        if new_name and new_name != old_name:
+                        if new_name:
                             conn = get_conn()
-                            conn.execute("UPDATE part_types SET part_name=? WHERE part_no=?", (new_name, edit_pno))
+                            conn.execute("UPDATE part_types SET part_name=?, min_stock=? WHERE part_no=?", (new_name, new_min, edit_pno))
                             conn.commit()
                             conn.close()
-                            log_action("PartType", "修改名称", st.session_state.user, f"{edit_pno}: {old_name} -> {new_name}")
+                            log_action("PartType", "修改类型", st.session_state.user, f"{edit_pno}: {old_name}->{new_name} 安全库存:{new_min}")
                             st.success("修改成功")
                             st.rerun()
             else:
@@ -702,12 +804,36 @@ def section_manager():
             month_in = conn.execute("SELECT COUNT(*) FROM inventory WHERE inbound_time >= ?", (month_start,)).fetchone()[0]
             month_out = conn.execute("SELECT COUNT(*) FROM requests WHERE status='approved' AND approved_time >= ?", (month_start,)).fetchone()[0]
 
+            # 上月数据用于环比
+            first_of_month = now.replace(day=1)
+            last_month_end = first_of_month - timedelta(days=1)
+            last_month_start = last_month_end.replace(day=1)
+            lm_start_str = last_month_start.strftime("%Y-%m-%d")
+            lm_end_str = last_month_end.strftime("%Y-%m-%d 23:59:59")
+            last_month_in = conn.execute("SELECT COUNT(*) FROM inventory WHERE inbound_time >= ? AND inbound_time <= ?", (lm_start_str, lm_end_str)).fetchone()[0]
+            last_month_out = conn.execute("SELECT COUNT(*) FROM requests WHERE status='approved' AND approved_time >= ? AND approved_time <= ?", (lm_start_str, lm_end_str)).fetchone()[0]
+
+            net_change = month_in - month_out
+            in_delta = month_in - last_month_in
+            out_delta = month_out - last_month_out
+
             k1, k2, k3, k4, k5 = st.columns(5)
-            k1.metric("在库总数", in_stock)
+            k1.metric("在库总数", in_stock, delta=f"{net_change:+d} 本月净变化" if net_change != 0 else None)
             k2.metric("累计出库", out_stock)
-            k3.metric("待审批", pending_cnt)
-            k4.metric("本月入库", month_in)
-            k5.metric("本月出库", month_out)
+            k3.metric("待审批", pending_cnt, delta=f"{pending_cnt} 条待处理" if pending_cnt > 0 else None, delta_color="off")
+            k4.metric("本月入库", month_in, delta=f"{in_delta:+d} 环比上月" if in_delta != 0 else "持平")
+            k5.metric("本月出库", month_out, delta=f"{out_delta:+d} 环比上月" if out_delta != 0 else "持平", delta_color="inverse")
+
+            # 安全库存预警
+            df_safety = pd.read_sql(
+                "SELECT t.part_no as 备件号, t.part_name as 备件名称, t.min_stock as 安全库存, "
+                "COUNT(CASE WHEN i.status=0 THEN 1 END) as 在库数量 "
+                "FROM part_types t LEFT JOIN inventory i ON t.part_no=i.part_no "
+                "WHERE t.min_stock > 0 GROUP BY t.part_no, t.part_name, t.min_stock "
+                "HAVING 在库数量 < t.min_stock", conn)
+            if not df_safety.empty:
+                st.error(f"🚨 **低库存预警**：{len(df_safety)} 种备件低于安全库存线！")
+                st.dataframe(df_safety, use_container_width=True)
 
             st.divider()
             col_a, col_b = st.columns(2)
@@ -731,6 +857,19 @@ def section_manager():
                     st.bar_chart(df_type.set_index('备件号')['在库数量'])
                 else:
                     st.info("暂无库存数据")
+
+            # 新旧状态分布
+            st.divider()
+            st.write("**按新旧状态分布**")
+            df_cond = pd.read_sql("SELECT COALESCE(condition, '未知') as 状态, COUNT(*) as 数量 FROM inventory WHERE status=0 GROUP BY condition", conn)
+            if not df_cond.empty:
+                col_x, col_y = st.columns(2)
+                with col_x:
+                    st.dataframe(df_cond, use_container_width=True)
+                with col_y:
+                    st.bar_chart(df_cond.set_index('状态')['数量'])
+            else:
+                st.info("暂无库存数据")
 
         # ---- 二、出入库趋势分析 ----
         with ana_tab2:
@@ -832,6 +971,33 @@ def section_manager():
             else:
                 st.info("近 6 个月暂无出库记录")
 
+        # 导出分析报告
+        st.divider()
+        st.write("**📥 导出分析报告**")
+        col_dl1, col_dl2, col_dl3 = st.columns(3)
+        with col_dl1:
+            df_export_inv = pd.read_sql(
+                "SELECT i.part_no as 备件号, t.part_name as 备件名称, i.serial_number as 序列号, "
+                "i.condition as 新旧, i.subsidiary as 子公司, i.warehouse as 仓库, i.inbound_time as 入库时间 "
+                "FROM inventory i LEFT JOIN part_types t ON i.part_no=t.part_no WHERE i.status=0", conn)
+            st.download_button("📥 库存明细", df_export_inv.to_csv(index=False).encode('utf-8'),
+                               "库存分析_库存明细.csv", key="dl_ana_inv")
+        with col_dl2:
+            df_et_in = pd.read_sql("SELECT strftime('%%Y-%%m', inbound_time) as 月份, COUNT(*) as 入库量 FROM inventory WHERE inbound_time IS NOT NULL GROUP BY 月份 ORDER BY 月份", conn)
+            df_et_out = pd.read_sql("SELECT strftime('%%Y-%%m', approved_time) as 月份, SUM(qty) as 出库量 FROM requests WHERE status='approved' AND approved_time IS NOT NULL GROUP BY 月份 ORDER BY 月份", conn)
+            df_et = pd.merge(df_et_in, df_et_out, on='月份', how='outer').fillna(0).sort_values('月份')
+            st.download_button("📥 出入库趋势", df_et.to_csv(index=False).encode('utf-8'),
+                               "库存分析_出入库趋势.csv", key="dl_ana_trend")
+        with col_dl3:
+            df_export_age = pd.read_sql(
+                "SELECT i.part_no as 备件号, t.part_name as 备件名称, i.serial_number as 序列号, "
+                "i.subsidiary as 子公司, i.warehouse as 仓库, i.inbound_time as 入库时间, "
+                "CAST(julianday('now') - julianday(i.inbound_time) AS INTEGER) as 库龄天数 "
+                "FROM inventory i LEFT JOIN part_types t ON i.part_no=t.part_no "
+                "WHERE i.status=0 AND i.inbound_time IS NOT NULL ORDER BY 库龄天数 DESC", conn)
+            st.download_button("📥 库龄明细", df_export_age.to_csv(index=False).encode('utf-8'),
+                               "库存分析_库龄明细.csv", key="dl_ana_age")
+
         conn.close()
 
     # D12: 统一系统日志查询面板
@@ -874,7 +1040,14 @@ def section_operator():
     with tab1:
         conn = get_conn()
         types = pd.read_sql("SELECT part_no, part_name FROM part_types", conn)
+        overview = pd.read_sql(
+            "SELECT t.part_no as 备件号, t.part_name as 备件名称, "
+            "COUNT(CASE WHEN i.status=0 THEN 1 END) as 可用库存 "
+            "FROM part_types t LEFT JOIN inventory i ON t.part_no=i.part_no "
+            "GROUP BY t.part_no, t.part_name ORDER BY t.part_no", conn)
         conn.close()
+        with st.expander("📋 所有备件可用库存一览", expanded=False):
+            st.dataframe(overview, use_container_width=True)
         sel = st.selectbox("1. 选择备件类型", ["--"] + [f"{r['part_no']} | {r['part_name']}" for _, r in types.iterrows()])
         if sel != "--":
             p = sel.split(" | ")[0]
@@ -996,6 +1169,14 @@ def main():
         if st.sidebar.button("退出"):
             st.session_state.logged_in = False
             st.rerun()
+
+        st.sidebar.divider()
+        if st.sidebar.button("🎲 加载演示数据"):
+            if load_demo_data():
+                st.sidebar.success("演示数据加载成功！")
+                st.rerun()
+            else:
+                st.sidebar.warning("数据库已有数据，跳过加载")
 
         role = st.sidebar.radio("导航", [r for r in ["Admin面板", "Manager面板", "Operator面板"] if r.split("面板")[0].lower() in st.session_state.roles])
 
