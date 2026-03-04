@@ -309,7 +309,7 @@ E:\Testing\791\
   - `/age?stale_days=N` — 库龄分布（4 档分桶 + 呆滞预警明细，$dateDiff 计算）
   - `/turnover?months=N` — 备件周转率（出库量/在库量，支持自定义周期）
 - 权限: 所有分析接口需 admin 或 manager 角色
-- 待测试: 重启服务后用 Postman 验证
+- 测试: Postman 验证 7 个接口均正常通过（KPI/分布/安全库存/趋势/消耗/库龄/周转）
 
 ### 阶段 2：PC 前端 — 登录 + 用户管理
 
