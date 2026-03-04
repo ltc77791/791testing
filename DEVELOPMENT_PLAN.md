@@ -289,7 +289,8 @@ E:\Testing\791\
 - 文件: `server/src/handlers/inventory.js`, `routes/inventory.js`
 - 完成: GET 分页查询（多条件筛选）、POST 入库（原子更新 part_types.current_stock + counters）、PATCH 编辑（part_no 变更时同步调整库存计数）、GET 扫码查询（精确匹配 SN）、POST 批量导入（预校验+bulkInsert）
 - 权限: 查询/扫码所有登录用户可用；入库/编辑/批量导入需 admin 或 manager
-- 待测试: 重启服务后用 Postman 验证 5 个接口
+- 编辑接口支持 ObjectId 和序列号双模式定位
+- 测试: Postman 验证 5 个接口均正常通过
 
 ### 阶段 2：PC 前端 — 登录 + 用户管理
 
