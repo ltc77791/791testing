@@ -250,18 +250,40 @@ E:\Testing\791\
 
 ### 阶段 1：后端骨架 + 全部 API
 
-| 步骤 | 任务 | 对应原型代码 | 验证方式 |
-|:----:|------|-------------|---------|
-| 1-1 | Express 启动 + MongoDB 连接 + 集合初始化 + 索引 | `get_conn()` `init_system()` | `npm run dev` 启动，6 个集合已创建 |
-| 1-2 | JWT 登录 + RBAC 中间件 | `hash_pwd()` + 角色检查 | POST `/api/auth/login` 返回 token |
-| 1-3 | 用户管理 CRUD (4个接口) | `section_admin()` | 增删改查用户，非 admin 返回 403 |
-| 1-4 | 备件类型管理 CRUD (4个接口) | 备件类型管理 tab | 增删改查，含 min_stock |
-| 1-5 | 入库 + 库存查询 + 编辑 + 扫码查询 (4个接口) | 入库 + 查询 + 编辑 tab | 新品入库、利旧回流、分页、编辑 |
-| 1-6 | 申请/审批/驳回/撤回/列表 (6个接口) | 申请出库 + 审批出库 | 完整工作流含部分批准 |
-| 1-7 | 数据分析 (7个接口) | `ana_tab1/2/3` | KPI/分布/趋势/消耗/库龄/周转 |
-| 1-8 | 系统日志 + 导出 (4个接口) | 系统日志 + 批量导出 | 日志分页，CSV 生成 |
-| 1-9 | 演示数据脚本 | `load_demo_data()` | `npm run seed` 生成完整数据 |
-| 1-10 | 参数校验 + 错误处理完善 | — | 非法参数返回 400 |
+| 步骤 | 任务 | 对应原型代码 | 验证方式 | 状态 |
+|:----:|------|-------------|---------|:----:|
+| 1-1 | Express 启动 + MongoDB 连接 + 集合初始化 + 索引 | `get_conn()` `init_system()` | `npm run dev` 启动，6 个集合已创建 | ✅ 完成 |
+| 1-2 | JWT 登录 + RBAC 中间件 | `hash_pwd()` + 角色检查 | POST `/api/auth/login` 返回 token | ✅ 完成 |
+| 1-3 | 用户管理 CRUD (4个接口) | `section_admin()` | 增删改查用户，非 admin 返回 403 | ✅ 完成 |
+| 1-4 | 备件类型管理 CRUD (4个接口) | 备件类型管理 tab | 增删改查，含 min_stock | ✅ 完成 |
+| 1-5 | 入库 + 库存查询 + 编辑 + 扫码查询 (4个接口) | 入库 + 查询 + 编辑 tab | 新品入库、利旧回流、分页、编辑 | ⬜ 待开发 |
+| 1-6 | 申请/审批/驳回/撤回/列表 (6个接口) | 申请出库 + 审批出库 | 完整工作流含部分批准 | ⬜ 待开发 |
+| 1-7 | 数据分析 (7个接口) | `ana_tab1/2/3` | KPI/分布/趋势/消耗/库龄/周转 | ⬜ 待开发 |
+| 1-8 | 系统日志 + 导出 (4个接口) | 系统日志 + 批量导出 | 日志分页，CSV 生成 | ⬜ 待开发 |
+| 1-9 | 演示数据脚本 | `load_demo_data()` | `npm run seed` 生成完整数据 | ⬜ 待开发 |
+| 1-10 | 参数校验 + 错误处理完善 | — | 非法参数返回 400 | ⬜ 待开发 |
+
+### 已完成工作小结
+
+**步骤 1-1 (Express + MongoDB)**
+- 文件: `server/src/index.js`, `config.js`, `db.js`
+- 完成: Express 服务启动、MongoDB 连接、6 个集合自动创建与索引、CORS 配置
+
+**步骤 1-2 (JWT 登录 + RBAC)**
+- 文件: `server/src/handlers/auth.js`, `middleware/auth.js`, `middleware/rbac.js`, `routes/auth.js`
+- 完成: 登录返回 JWT token、修改密码、token 验证中间件、角色权限中间件
+- 测试: Postman 验证登录、token 解析、权限拦截均正常
+
+**步骤 1-3 (用户管理 CRUD)**
+- 文件: `server/src/handlers/users.js`, `routes/users.js`
+- 完成: GET 用户列表、POST 创建用户、PATCH 修改用户角色/状态、DELETE 删除用户
+- 测试: Postman 验证 4 个接口均正常，非 admin 角色返回 403
+
+**步骤 1-4 (备件类型管理 CRUD)**
+- 文件: `server/src/handlers/partTypes.js`, `routes/partTypes.js`
+- 完成: GET 分页查询（支持关键词搜索）、POST 新增、PATCH 编辑（同步更新 inventory 冗余字段）、DELETE 删除（检查库存和待审批引用）
+- 权限: admin 或 manager 角色
+- 待测试: 重启服务后用 Postman 验证 4 个接口
 
 ### 阶段 2：PC 前端 — 登录 + 用户管理
 
