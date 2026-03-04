@@ -1,4 +1,5 @@
 const { MongoClient } = require('mongodb');
+const bcrypt = require('bcryptjs');
 const config = require('./config');
 
 let db = null;
@@ -94,6 +95,22 @@ async function initCollections() {
       updated_at: new Date(),
     });
     console.log('  Counters stats document initialized');
+  }
+
+  // --- Default admin user ---
+  const users = database.collection('users');
+  const adminExists = await users.findOne({ username: 'admin' });
+  if (!adminExists) {
+    const hash = await bcrypt.hash('admin123', 10);
+    await users.insertOne({
+      username: 'admin',
+      password: hash,
+      roles: ['admin'],
+      is_active: true,
+      created_at: new Date(),
+      last_login: null,
+    });
+    console.log('  Default admin user created (admin / admin123)');
   }
 
   console.log('Collections and indexes initialized');

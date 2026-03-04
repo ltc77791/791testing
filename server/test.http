@@ -1,7 +1,9 @@
 ### Health Check
 GET http://localhost:3000/api/health
 
-### Login (after step 1-2)
+### ===== 步骤 1-2: 认证 =====
+
+### Login as admin
 POST http://localhost:3000/api/auth/login
 Content-Type: application/json
 
@@ -10,9 +12,79 @@ Content-Type: application/json
   "password": "admin123"
 }
 
-### List Users (after step 1-3, replace <token>)
+### Login - wrong password (expect 401)
+POST http://localhost:3000/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "wrongpassword"
+}
+
+### Change password (replace <token> with actual token from login)
+POST http://localhost:3000/api/auth/change-password
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "oldPassword": "admin123",
+  "newPassword": "newpass123"
+}
+
+### ===== 步骤 1-3: 用户管理 =====
+
+### List Users (admin only)
 GET http://localhost:3000/api/users
 Authorization: Bearer <token>
+
+### Create User
+POST http://localhost:3000/api/users
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "username": "张伟",
+  "password": "123456",
+  "roles": ["operator"]
+}
+
+### Create Manager User
+POST http://localhost:3000/api/users
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "username": "李娜",
+  "password": "123456",
+  "roles": ["manager"]
+}
+
+### Update User Role
+PATCH http://localhost:3000/api/users/张伟
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "roles": ["manager", "operator"]
+}
+
+### Disable User
+PATCH http://localhost:3000/api/users/张伟
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "is_active": false
+}
+
+### Delete User
+DELETE http://localhost:3000/api/users/张伟
+Authorization: Bearer <token>
+
+### No token (expect 401)
+GET http://localhost:3000/api/users
+
+### ===== 后续步骤占位 =====
 
 ### List Part Types (after step 1-4)
 GET http://localhost:3000/api/part-types
