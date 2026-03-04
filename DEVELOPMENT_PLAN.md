@@ -259,7 +259,7 @@ E:\Testing\791\
 | 1-5 | 入库 + 库存查询 + 编辑 + 扫码查询 (5个接口) | 入库 + 查询 + 编辑 tab | 新品入库、利旧回流、分页、编辑、批量导入 | ✅ 完成 |
 | 1-6 | 申请/审批/驳回/撤回/列表 (6个接口) | 申请出库 + 审批出库 | 完整工作流含部分批准 | ✅ 完成 |
 | 1-7 | 数据分析 (7个接口) | `ana_tab1/2/3` | KPI/分布/趋势/消耗/库龄/周转 | ✅ 完成 |
-| 1-8 | 系统日志 + 导出 (4个接口) | 系统日志 + 批量导出 | 日志分页，CSV 生成 | ⬜ 待开发 |
+| 1-8 | 系统日志 + 导出 (4个接口) | 系统日志 + 批量导出 | 日志分页，CSV 生成 | ✅ 完成 |
 | 1-9 | 演示数据脚本 | `load_demo_data()` | `npm run seed` 生成完整数据 | ⬜ 待开发 |
 | 1-10 | 参数校验 + 错误处理完善 | — | 非法参数返回 400 | ⬜ 待开发 |
 
@@ -309,6 +309,16 @@ E:\Testing\791\
   - `/age?stale_days=N` — 库龄分布（4 档分桶 + 呆滞预警明细，$dateDiff 计算）
   - `/turnover?months=N` — 备件周转率（出库量/在库量，支持自定义周期）
 - 权限: 所有分析接口需 admin 或 manager 角色
+- 测试: Postman 验证 7 个接口均正常通过（KPI/分布/安全库存/趋势/消耗/库龄/周转）
+
+**步骤 1-8 (系统日志 + 导出)**
+- 文件: `server/src/handlers/logs.js`, `handlers/export.js`, `routes/logs.js`, `routes/export.js`
+- 完成 4 个接口:
+  - `GET /api/logs` — 系统日志分页查询（支持 category/operator/时间范围筛选，逗号分隔多选）
+  - `GET /api/export/inventory` — 导出在库库存明细 CSV（含 UTF-8 BOM 兼容 Excel）
+  - `GET /api/export/requests` — 导出申请/出库记录 CSV（approved_sns 用分号连接）
+  - `GET /api/export/analytics` — 导出分析报告 CSV（月度趋势 + 库龄明细两段合并）
+- 权限: 所有接口需 admin 或 manager 角色
 - 待测试: 重启服务后用 Postman 验证
 
 ### 阶段 2：PC 前端 — 登录 + 用户管理
