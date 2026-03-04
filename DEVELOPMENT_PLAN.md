@@ -283,7 +283,7 @@ E:\Testing\791\
 - 文件: `server/src/handlers/partTypes.js`, `routes/partTypes.js`
 - 完成: GET 分页查询（支持关键词搜索）、POST 新增、PATCH 编辑（同步更新 inventory 冗余字段）、DELETE 删除（检查库存和待审批引用）
 - 权限: admin 或 manager 角色
-- 待测试: 重启服务后用 Postman 验证 4 个接口
+- 测试: Postman 验证 4 个接口均正常
 
 ### 阶段 2：PC 前端 — 登录 + 用户管理
 
