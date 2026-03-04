@@ -2,3 +2,15 @@ __pycache__/
 *.pyc
 *.pyo
 *.db
+
+# Node
+node_modules/
+server/node_modules/
+web-admin/node_modules/
+
+# Environment
+.env
+!.env.example
+
+# Build output
+web-admin/dist/
