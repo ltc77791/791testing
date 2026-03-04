@@ -204,7 +204,7 @@ async function editInventory(req, res) {
     }
 
     await db.collection('inventory').updateOne(
-      { _id: oid },
+      { _id: record._id },
       { $set: updateFields }
     );
 
