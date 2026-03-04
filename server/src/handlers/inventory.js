@@ -133,6 +133,7 @@ async function inbound(req, res) {
 
 /**
  * PATCH /api/inventory/:id
+ * :id can be a MongoDB ObjectId OR a serial_number (SN)
  * Body: { subsidiary?, warehouse?, condition?, part_no? }
  */
 async function editInventory(req, res) {
@@ -140,15 +141,16 @@ async function editInventory(req, res) {
     const { id } = req.params;
     const { subsidiary, warehouse, condition, part_no } = req.body;
 
-    let oid;
-    try {
-      oid = new ObjectId(id);
-    } catch {
-      return res.status(400).json({ code: 1, message: '无效的记录ID' });
-    }
-
     const db = getDB();
-    const record = await db.collection('inventory').findOne({ _id: oid });
+
+    // Support both ObjectId and serial_number lookup
+    let record;
+    if (/^[0-9a-fA-F]{24}$/.test(id)) {
+      record = await db.collection('inventory').findOne({ _id: new ObjectId(id) });
+    }
+    if (!record) {
+      record = await db.collection('inventory').findOne({ serial_number: id });
+    }
     if (!record) {
       return res.status(404).json({ code: 1, message: '库存记录不存在' });
     }
