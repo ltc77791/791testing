@@ -20,7 +20,7 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/part-types', require('./routes/partTypes'));
 app.use('/api/inventory', require('./routes/inventory'));
 app.use('/api/requests', require('./routes/requests'));
-// app.use('/api/analytics', require('./routes/analytics'));
+app.use('/api/analytics', require('./routes/analytics'));
 // app.use('/api/logs', require('./routes/logs'));
 // app.use('/api/export', require('./routes/export'));
 
