@@ -2,8 +2,9 @@
 
 /**
  * 演示数据生成脚本
- * 用法: npm run seed          (加载演示数据)
- *       npm run seed -- --drop (清空后重新加载)
+ * 用法: npm run seed           (加载演示数据)
+ *       npm run seed -- --drop  (清空后重新加载)
+ *       npm run seed -- --purge (仅清空数据，不重新生成)
  *
  * 生成内容:
  *   - 4 个操作员用户 (密码 123456)
@@ -82,13 +83,14 @@ function daysAgo(days, randomHour = true) {
 
 async function seed() {
   const dropFirst = process.argv.includes('--drop');
+  const purgeOnly = process.argv.includes('--purge');
 
   console.log('🔌 Connecting to MongoDB:', config.mongoUri);
   const client = new MongoClient(config.mongoUri);
   await client.connect();
   const db = client.db();
 
-  if (dropFirst) {
+  if (dropFirst || purgeOnly) {
     console.log('🗑️  Dropping existing data...');
     await Promise.all([
       db.collection('users').deleteMany({}),
@@ -99,6 +101,12 @@ async function seed() {
       db.collection('counters').deleteMany({}),
     ]);
     console.log('   All collections cleared.');
+
+    if (purgeOnly) {
+      console.log('\n✨ Purge completed. Database is empty.');
+      await client.close();
+      return;
+    }
   } else {
     // Check if data already exists
     const invCount = await db.collection('inventory').countDocuments();
