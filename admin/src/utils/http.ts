@@ -35,8 +35,12 @@ http.interceptors.response.use(
       ElMessage.error(msg || '请求参数错误')
     } else if (status === 404) {
       ElMessage.error(msg || '请求的资源不存在')
+    } else if (status === 409) {
+      ElMessage.error(msg || '数据冲突，请检查后重试')
     } else if (status && status >= 500) {
       ElMessage.error(msg || '服务器错误，请稍后重试')
+    } else if (status) {
+      ElMessage.error(msg || '请求失败')
     } else {
       ElMessage.error('网络连接失败，请检查网络')
     }
