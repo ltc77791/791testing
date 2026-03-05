@@ -356,10 +356,17 @@ E:\Testing\791\
 
 | 步骤 | 任务 | 涉及文件 | 验证方式 | 状态 |
 |:----:|------|---------|---------|:----:|
-| 2-1 | Vite 脚手架 + 代理 `/api → :3000` | `vite.config.ts`, `package.json` | `npm run dev` 启动无报错 | ✅ 完成 |
+| 2-1 | Vite 脚手架 + 代理 `/api → :3000` | `vite.config.ts`, `package.json` | 5 项验证全部通过（见下方小结） | ✅ 完成 |
 | 2-2 | Axios 封装 + JWT 拦截器 | `utils/http.ts` | 手动测试请求自动带 token | ⬜ 待开发 |
 | 2-3 | Pinia auth store + Login.vue | `stores/auth.ts`, `views/Login.vue` | admin/admin123 登录成功 | ⬜ 待开发 |
 | 2-4 | AppLayout 侧边栏 + 路由守卫 | `components/AppLayout.vue`, `router/index.ts` | 未登录跳转登录页，菜单按角色显示 | ⬜ 待开发 |
+
+**步骤 2-1 验证记录 (已通过)**
+1. `npm run dev` 启动无报错，Vite 开发服务器运行于 localhost:5173 ✅
+2. 浏览器访问 localhost:5173 正常显示欢迎页面 ✅
+3. 浏览器控制台 `fetch('/api/files').then(r=>r.json()).then(console.log)` 代理转发至后端成功 ✅
+4. Vue Router 路由切换正常 ✅
+5. TypeScript 编译无错误 ✅
 
 ### 阶段 3：PC 前端 — 核心业务页面
 
