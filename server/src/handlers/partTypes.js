@@ -47,10 +47,6 @@ async function createPartType(req, res) {
   try {
     const { part_no, part_name, min_stock } = req.body;
 
-    if (!part_no || !part_name) {
-      return res.status(400).json({ code: 1, message: '备件编号和名称不能为空' });
-    }
-
     const db = getDB();
 
     // Check duplicate

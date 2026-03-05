@@ -261,7 +261,7 @@ E:\Testing\791\
 | 1-7 | 数据分析 (7个接口) | `ana_tab1/2/3` | KPI/分布/趋势/消耗/库龄/周转 | ✅ 完成 |
 | 1-8 | 系统日志 + 导出 (4个接口) | 系统日志 + 批量导出 | 日志分页，CSV 生成 | ✅ 完成 |
 | 1-9 | 演示数据脚本 | `load_demo_data()` | `npm run seed` 生成完整数据 | ✅ 完成 |
-| 1-10 | 参数校验 + 错误处理完善 | — | 非法参数返回 400 | ⬜ 待开发 |
+| 1-10 | 参数校验 + 错误处理完善 | — | 非法参数返回 400 | ✅ 完成 |
 
 ### 已完成工作小结
 
@@ -334,6 +334,24 @@ E:\Testing\791\
   - ~40 条系统日志
   - counters 统计自动校准
 - 默认密码: admin → admin123, 其余 → 123456
+
+**步骤 1-10 (参数校验 + 错误处理完善)**
+- 新增文件: `server/src/utils/validate.js`
+- 完成内容:
+  - 基于 Joi ^17 的统一参数校验框架，覆盖全部 32 个接口
+  - `validate(schema, source)` 中间件工厂，支持 body/query/params 三种校验目标
+  - 自动类型转换（query string → number）、多错误合并返回、未知字段自动剔除
+  - 全局错误处理增强: Joi 错误 → 400、JSON 解析错误 → 400、请求体过大 → 413
+  - 所有路由文件挂载校验中间件，在 handler 前拦截非法参数
+  - 清理 handlers 中与 Joi schema 重复的手动校验，保留业务逻辑校验（重复检查、存在性检查等）
+- 校验规则覆盖:
+  - 认证: username/password 必填、newPassword ≥ 6 位
+  - 用户管理: roles 枚举校验、password 长度、update 至少一个字段
+  - 备件类型: part_no/part_name 必填+长度限制、min_stock ≥ 0
+  - 库存: 入库 5 必填字段、condition 枚举、批量导入 1-500 条限制
+  - 申请审批: items 数组+quantity ≥ 1、project_location 必填、status 枚举、reason 必填
+  - 分析接口: months/stale_days 范围校验+默认值
+  - 日志: 日期 ISO 格式校验、分页参数范围
 
 ### 阶段 2：PC 前端 — 登录 + 用户管理
 

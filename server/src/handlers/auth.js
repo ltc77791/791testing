@@ -11,9 +11,6 @@ const { getDB } = require('../db');
 async function login(req, res) {
   try {
     const { username, password } = req.body;
-    if (!username || !password) {
-      return res.status(400).json({ code: 1, message: '用户名和密码不能为空' });
-    }
 
     const db = getDB();
     const user = await db.collection('users').findOne({ username });
@@ -58,13 +55,6 @@ async function login(req, res) {
 async function changePassword(req, res) {
   try {
     const { oldPassword, newPassword } = req.body;
-    if (!oldPassword || !newPassword) {
-      return res.status(400).json({ code: 1, message: '旧密码和新密码不能为空' });
-    }
-
-    if (newPassword.length < 6) {
-      return res.status(400).json({ code: 1, message: '新密码长度不能少于6位' });
-    }
 
     const db = getDB();
     const user = await db.collection('users').findOne({ username: req.user.username });
