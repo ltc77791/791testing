@@ -38,7 +38,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'users',
         name: 'UserManagement',
-        component: () => import('../views/Placeholder.vue'),
+        component: () => import('../views/users/UserManagement.vue'),
         meta: { roles: ['admin'] },
       },
       // 备件类型
