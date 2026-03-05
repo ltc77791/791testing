@@ -52,7 +52,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'inventory',
         name: 'Inventory',
-        component: () => import('../views/Placeholder.vue'),
+        component: () => import('../views/inventory/InventoryList.vue'),
         meta: { roles: ['admin', 'manager'] },
       },
       // 入库
