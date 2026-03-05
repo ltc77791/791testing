@@ -413,6 +413,11 @@ E:\Testing\791\
 - 详情弹窗: 完整申请信息 + 预留序列号列表
 - 路由: `/approvals`，仅 admin/manager 可访问
 
+**步骤 3-5 验证修复记录**
+- **Bug**: operator 角色打开"申请出库"页面时弹出"权限不足，需要角色: admin 或 manager"，且备件类型下拉为空无法选择
+  - 原因: `server/src/routes/partTypes.js` 对所有路由（含 GET 列表）统一加了 `requireRole('admin', 'manager')` 中间件，operator 无权调用 `/api/part-types`
+  - 修复: 将 GET 列表接口改为仅需 `authenticate`（任何已认证用户可访问），POST/PATCH/DELETE 保留 admin/manager 权限
+
 **步骤 3-3 / 3-4 验证修复记录**
 - **Bug 1**: 库存管理和备件入库页面弹出 `"pageSize" must be less than or equal to 100`
   - 原因: `InventoryList.vue` 和 `InboundPage.vue` 加载备件类型/子公司下拉时传 `pageSize: 500`，后端 Joi 校验上限为 100
