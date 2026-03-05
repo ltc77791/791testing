@@ -72,7 +72,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'approvals',
         name: 'Approvals',
-        component: () => import('../views/Placeholder.vue'),
+        component: () => import('../views/requests/ApprovalPage.vue'),
         meta: { roles: ['admin', 'manager'] },
       },
       // 系统日志
