@@ -66,7 +66,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'requests',
         name: 'Requests',
-        component: () => import('../views/Placeholder.vue'),
+        component: () => import('../views/requests/RequestPage.vue'),
       },
       // 审批管理
       {
