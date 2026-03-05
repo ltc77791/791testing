@@ -52,8 +52,8 @@
           <template #title>备件入库</template>
         </el-menu-item>
 
-        <!-- 申请出库 — all -->
-        <el-menu-item index="/requests">
+        <!-- 申请出库 — user only (审批者不可申请) -->
+        <el-menu-item v-if="!authStore.isManager" index="/requests">
           <el-icon><DocumentAdd /></el-icon>
           <template #title>申请出库</template>
         </el-menu-item>

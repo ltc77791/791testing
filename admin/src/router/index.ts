@@ -62,11 +62,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('../views/inventory/InboundPage.vue'),
         meta: { roles: ['admin', 'manager'] },
       },
-      // 申请出库
+      // 申请出库 — 仅 user 角色（权限隔离：审批者不可申请）
       {
         path: 'requests',
         name: 'Requests',
         component: () => import('../views/requests/RequestPage.vue'),
+        meta: { roles: ['user'] },
       },
       // 审批管理
       {
@@ -120,8 +121,9 @@ router.beforeEach((to, _from, next) => {
     const userRoles = authStore.roles
     const hasAccess = requiredRoles.some((r) => userRoles.includes(r))
     if (!hasAccess) {
-      // 无权限 → 跳转到申请出库页 (所有角色都有权限的页面)
-      return next('/requests')
+      // 无权限 → 管理员跳审批页，普通用户跳申请页
+      const fallback = userRoles.includes('admin') || userRoles.includes('manager') ? '/approvals' : '/requests'
+      return next(fallback)
     }
   }
 
