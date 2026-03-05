@@ -59,7 +59,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'inbound',
         name: 'Inbound',
-        component: () => import('../views/Placeholder.vue'),
+        component: () => import('../views/inventory/InboundPage.vue'),
         meta: { roles: ['admin', 'manager'] },
       },
       // 申请出库
