@@ -394,10 +394,37 @@ E:\Testing\791\
 |:----:|------|-------------|---------|:----:|
 | 3-1 | 用户管理 CRUD 页面 | `users` 4 个接口 | 表格增删改查，非 admin 不可见 | ✅ 完成 |
 | 3-2 | 备件类型管理页面 | `part-types` 4 个接口 | 表格增删改查 + 搜索 | ✅ 完成 |
-| 3-3 | 库存列表 + 多条件筛选 + 编辑 | `inventory` GET + PATCH | 分页表格 + 筛选器 + 编辑弹窗 | ✅ 完成 |
-| 3-4 | 入库表单 + 批量导入 + 扫码查询 | `inbound` + `batch-import` + `scan` | 单件入库 + Excel 解析预览 + SN 扫码 | ✅ 完成 |
-| 3-5 | 申请出库 + 我的申请列表 | `requests` POST + GET | 多品类申请 + 状态筛选 + 撤回 | ⬜ 待开发 |
-| 3-6 | 审批管理 (审批/驳回/部分批准) | `approve` + `reject` | 待审批列表 + 审批弹窗 + 部分批准 | ⬜ 待开发 |
+| 3-3 | 库存列表 + 多条件筛选 + 编辑 | `inventory` GET + PATCH | 分页表格 + 筛选器 + 编辑弹窗 | ✅ 完成 (已验证+修复) |
+| 3-4 | 入库表单 + 批量导入 + 扫码查询 | `inbound` + `batch-import` + `scan` | 单件入库 + Excel 解析预览 + SN 扫码 | ✅ 完成 (已验证+修复) |
+| 3-5 | 申请出库 + 我的申请列表 | `requests` POST + GET | 多品类申请 + 状态筛选 + 撤回 | ✅ 完成 (待验证) |
+| 3-6 | 审批管理 (审批/驳回/部分批准) | `approve` + `reject` | 待审批列表 + 审批弹窗 + 部分批准 | ✅ 完成 (待验证) |
+
+**步骤 3-5 完成内容**
+- 文件: `admin/src/views/requests/RequestPage.vue`
+- 提交申请 Tab: 项目地点(必填) + 动态多行备件明细(类型+数量) + 备注(可选)，提交后自动跳转列表
+- 我的申请 Tab: 状态筛选 + 分页表格 + 详情弹窗(含预留序列号) + 撤回(仅待审批，二次确认)
+- 路由: `/requests`，所有登录用户均可访问
+
+**步骤 3-6 完成内容**
+- 文件: `admin/src/views/requests/ApprovalPage.vue`
+- 列表: 状态+申请人双筛选 + 分页表格(申请时间/申请人/明细/项目/状态/审批人/操作)
+- 审批弹窗: 支持"全部批准"和"部分批准"两种模式，部分批准可逐项调整批准数量
+- 驳回弹窗: 必填驳回原因(textarea + 500字限制)
+- 详情弹窗: 完整申请信息 + 预留序列号列表
+- 路由: `/approvals`，仅 admin/manager 可访问
+
+**步骤 3-5 验证修复记录**
+- **Bug**: operator 角色打开"申请出库"页面时弹出"权限不足，需要角色: admin 或 manager"，且备件类型下拉为空无法选择
+  - 原因: `server/src/routes/partTypes.js` 对所有路由（含 GET 列表）统一加了 `requireRole('admin', 'manager')` 中间件，operator 无权调用 `/api/part-types`
+  - 修复: 将 GET 列表接口改为仅需 `authenticate`（任何已认证用户可访问），POST/PATCH/DELETE 保留 admin/manager 权限
+
+**步骤 3-3 / 3-4 验证修复记录**
+- **Bug 1**: 库存管理和备件入库页面弹出 `"pageSize" must be less than or equal to 100`
+  - 原因: `InventoryList.vue` 和 `InboundPage.vue` 加载备件类型/子公司下拉时传 `pageSize: 500`，后端 Joi 校验上限为 100
+  - 修复: 3 处 `pageSize: 500` → `pageSize: 100`（`InventoryList.vue` 2 处, `InboundPage.vue` 1 处）
+- **Bug 2**: 单件入库重复序列号时，报错显示"网络连接失败"而非"序列号已存在"
+  - 原因: 后端返回 HTTP 409 (Conflict)，但前端 `http.ts` 错误拦截器只处理了 400/401/403/404/500+，409 落入 else 分支显示"网络连接失败"
+  - 修复: `http.ts` 新增 `status === 409` 分支展示后端消息；将 else 拆分为有 status（显示后端消息）和无 status（真正网络错误）两层
 
 ### 阶段 4：PC 前端 — 数据分析仪表盘
 

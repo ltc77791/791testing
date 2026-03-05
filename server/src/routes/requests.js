@@ -16,8 +16,8 @@ const router = Router();
 // All routes require authentication
 router.use(authenticate);
 
-// Any authenticated user can create a request, list their own, view detail
-router.post('/', validate(schemas.requests.create), createRequest);
+// Only user role can create requests (admin/manager are approvers, not applicants)
+router.post('/', requireRole('operator'), validate(schemas.requests.create), createRequest);
 router.get('/', validate(schemas.requests.list, 'query'), listRequests);
 router.get('/:id', getRequest);
 

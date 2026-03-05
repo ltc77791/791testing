@@ -11,12 +11,12 @@ const {
 
 const router = Router();
 
-// All part-type routes require manager or admin role
-router.use(authenticate, requireRole('admin', 'manager'));
+// List: any authenticated user can read part types (needed for request form)
+router.get('/', authenticate, validate(schemas.partTypes.list, 'query'), listPartTypes);
 
-router.get('/', validate(schemas.partTypes.list, 'query'), listPartTypes);
-router.post('/', validate(schemas.partTypes.create), createPartType);
-router.patch('/:part_no', validate(schemas.partTypes.update), updatePartType);
-router.delete('/:part_no', deletePartType);
+// Create / Update / Delete: admin or manager only
+router.post('/', authenticate, requireRole('admin', 'manager'), validate(schemas.partTypes.create), createPartType);
+router.patch('/:part_no', authenticate, requireRole('admin', 'manager'), validate(schemas.partTypes.update), updatePartType);
+router.delete('/:part_no', authenticate, requireRole('admin', 'manager'), deletePartType);
 
 module.exports = router;
