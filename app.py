@@ -105,13 +105,36 @@ def login_page():
             else:
                 st.error("用户名或密码错误")
 
+# --- 共用模块：申请管理（admin/manager 查看所有申请） ---
+def render_application_management(conn):
+    st.subheader("📋 申请管理（所有申请记录）")
+
+    status_filter = st.selectbox("按状态筛选", ["全部", "pending", "approved", "rejected"])
+    if status_filter == "全部":
+        all_reqs = pd.read_sql("SELECT id, timestamp, applicant, part_no, qty, status, serial_numbers FROM requests ORDER BY id DESC", conn)
+    else:
+        all_reqs = pd.read_sql("SELECT id, timestamp, applicant, part_no, qty, status, serial_numbers FROM requests WHERE status=? ORDER BY id DESC", conn, params=(status_filter,))
+
+    if all_reqs.empty:
+        st.info("暂无申请记录")
+    else:
+        def color_status(val):
+            return f'color: {"green" if val=="approved" else "orange" if val=="pending" else "red"}'
+        st.dataframe(all_reqs.style.applymap(color_status, subset=['status']), use_container_width=True)
+
 # --- 模块：高级管理员 (修复版) ---
 def admin_dashboard():
     st.header(f"👤 用户与权限管理 (当前: {st.session_state['user']})")
-    
-    tab1, tab2 = st.tabs(["📋 用户列表与删除", "➕ 新增用户"])
-    
+    menu = st.sidebar.radio("管理菜单", ["用户管理", "申请管理"])
+
     conn = get_conn()
+
+    if menu == "申请管理":
+        render_application_management(conn)
+        conn.close()
+        return
+
+    tab1, tab2 = st.tabs(["📋 用户列表与删除", "➕ 新增用户"])
     
     with tab1:
         # 显示所有用户
@@ -171,7 +194,7 @@ def admin_dashboard():
 # --- 模块：备件管理员 (带序列号审批) ---
 def manager_dashboard():
     st.header(f"📦 库存与审批中心 (当前: {st.session_state['user']})")
-    menu = st.sidebar.radio("管理菜单", ["待审批申请", "备件入库/建档", "全局流水日志", "库存查询"])
+    menu = st.sidebar.radio("管理菜单", ["待审批申请", "申请管理", "备件入库/建档", "全局流水日志", "库存查询"])
     conn = get_conn()
     
     # 1. 审批流
@@ -216,7 +239,11 @@ def manager_dashboard():
                             conn.commit()
                             st.rerun()
 
-    # 2. 入库/建档
+    # 2. 申请管理
+    elif menu == "申请管理":
+        render_application_management(conn)
+
+    # 3. 入库/建档
     elif menu == "备件入库/建档":
         tab_in, tab_new = st.tabs(["现有备件入库", "新建备件档案"])
         with tab_in:
@@ -264,6 +291,11 @@ def manager_dashboard():
 
 # --- 模块：普通用户 ---
 def user_dashboard():
+    # 权限隔离：仅 user 角色可以访问申请功能
+    if st.session_state['role'] != 'user':
+        st.error("管理员和审批员无权提交申请，权限隔离！")
+        return
+
     st.header(f"🙋‍♂️ 备件中心 (当前: {st.session_state['user']})")
     menu = st.sidebar.radio("功能", ["查询与申领", "我的申请记录"])
     conn = get_conn()
