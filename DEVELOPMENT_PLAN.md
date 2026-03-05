@@ -95,7 +95,7 @@ E:\Testing\791\
 │       ├── inventory.test.js
 │       └── requests.test.js
 │
-├── web-admin\                   # PC 管理后台前端
+├── admin\                   # PC 管理后台前端
 │   ├── package.json
 │   ├── vite.config.ts
 │   ├── index.html
@@ -106,12 +106,10 @@ E:\Testing\791\
 │       ├── stores/
 │       │   ├── auth.ts
 │       │   └── analytics.ts
-│       ├── api/
-│       │   ├── client.ts        # Axios + JWT 拦截器
-│       │   ├── auth.ts
-│       │   ├── users.ts
-│       │   ├── analytics.ts
-│       │   └── importExport.ts
+│       ├── utils/
+│       │   └── http.ts          # Axios 封装 + JWT 拦截器
+│       ├── types/
+│       │   └── index.ts         # 接口类型定义
 │       ├── views/
 │       │   ├── Login.vue
 │       │   ├── users/
@@ -126,8 +124,7 @@ E:\Testing\791\
 │       │   ├── AppLayout.vue
 │       │   ├── KpiCard.vue
 │       │   └── ExportButton.vue
-│       └── styles/
-│           └── variables.css
+│       └── assets/
 │
 ├── app-v0.3.py                  # 原型代码 (保留参考)
 ├── inventory_v2.db              # 原型数据 (保留参考)
@@ -359,8 +356,8 @@ E:\Testing\791\
 
 | 步骤 | 任务 | 涉及文件 | 验证方式 | 状态 |
 |:----:|------|---------|---------|:----:|
-| 2-1 | Vite 脚手架 + 代理 `/api → :3000` | `vite.config.ts`, `package.json` | `npm run dev` 启动无报错 | ⬜ 待开发 |
-| 2-2 | Axios 封装 + JWT 拦截器 | `api/client.ts` | 手动测试请求自动带 token | ⬜ 待开发 |
+| 2-1 | Vite 脚手架 + 代理 `/api → :3000` | `vite.config.ts`, `package.json` | `npm run dev` 启动无报错 | ✅ 完成 |
+| 2-2 | Axios 封装 + JWT 拦截器 | `utils/http.ts` | 手动测试请求自动带 token | ⬜ 待开发 |
 | 2-3 | Pinia auth store + Login.vue | `stores/auth.ts`, `views/Login.vue` | admin/admin123 登录成功 | ⬜ 待开发 |
 | 2-4 | AppLayout 侧边栏 + 路由守卫 | `components/AppLayout.vue`, `router/index.ts` | 未登录跳转登录页，菜单按角色显示 | ⬜ 待开发 |
 
