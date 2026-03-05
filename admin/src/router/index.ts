@@ -45,7 +45,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'part-types',
         name: 'PartTypes',
-        component: () => import('../views/Placeholder.vue'),
+        component: () => import('../views/part-types/PartTypeManagement.vue'),
         meta: { roles: ['admin', 'manager'] },
       },
       // 库存管理
