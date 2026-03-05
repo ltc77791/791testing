@@ -245,7 +245,7 @@ const scanSearched = ref(false)
 // ---- 加载备件类型 ----
 async function loadPartTypes() {
   try {
-    const res: any = await http.get('/part-types', { params: { pageSize: 500 } })
+    const res: any = await http.get('/part-types', { params: { pageSize: 100 } })
     partTypeOptions.value = res.data.items.map((i: any) => ({
       part_no: i.part_no,
       part_name: i.part_name,

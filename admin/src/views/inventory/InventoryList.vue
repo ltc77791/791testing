@@ -228,7 +228,7 @@ function formatTime(t: string) {
 // ---- 加载下拉选项 ----
 async function loadOptions() {
   try {
-    const res: any = await http.get('/part-types', { params: { pageSize: 500 } })
+    const res: any = await http.get('/part-types', { params: { pageSize: 100 } })
     partTypeOptions.value = res.data.items.map((i: any) => ({
       part_no: i.part_no,
       part_name: i.part_name,
@@ -239,7 +239,7 @@ async function loadOptions() {
   try {
     const res: any = await http.get('/inventory', { params: { pageSize: 1 } })
     // 后端没有单独的子公司接口，从完整列表中提取
-    const allRes: any = await http.get('/inventory', { params: { pageSize: 500 } })
+    const allRes: any = await http.get('/inventory', { params: { pageSize: 100 } })
     const subs = new Set<string>()
     for (const item of allRes.data.items) {
       if (item.subsidiary) subs.add(item.subsidiary)
