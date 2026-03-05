@@ -357,9 +357,9 @@ E:\Testing\791\
 | 步骤 | 任务 | 涉及文件 | 验证方式 | 状态 |
 |:----:|------|---------|---------|:----:|
 | 2-1 | Vite 脚手架 + 代理 `/api → :3000` | `vite.config.ts`, `package.json` | 5 项验证全部通过（见下方小结） | ✅ 完成 |
-| 2-2 | Axios 封装 + JWT 拦截器 | `utils/http.ts` | 手动测试请求自动带 token | ⬜ 待开发 |
-| 2-3 | Pinia auth store + Login.vue | `stores/auth.ts`, `views/Login.vue` | admin/admin123 登录成功 | ⬜ 待开发 |
-| 2-4 | AppLayout 侧边栏 + 路由守卫 | `components/AppLayout.vue`, `router/index.ts` | 未登录跳转登录页，菜单按角色显示 | ⬜ 待开发 |
+| 2-2 | Axios 封装 + JWT 拦截器 | `utils/http.ts` | 手动测试请求自动带 token | ✅ 完成 |
+| 2-3 | Pinia auth store + Login.vue | `stores/auth.ts`, `views/Login.vue` | admin/admin123 登录成功 | ✅ 完成 |
+| 2-4 | AppLayout 侧边栏 + 路由守卫 | `components/AppLayout.vue`, `router/index.ts` | 未登录跳转登录页，菜单按角色显示 | ✅ 完成 |
 
 **步骤 2-1 验证记录 (已通过)**
 1. `npm run dev` 启动无报错，Vite 开发服务器运行于 localhost:5173 ✅
@@ -367,6 +367,24 @@ E:\Testing\791\
 3. 浏览器控制台 `fetch('/api/files').then(r=>r.json()).then(console.log)` 代理转发至后端成功 ✅
 4. Vue Router 路由切换正常 ✅
 5. TypeScript 编译无错误 ✅
+
+**步骤 2-2 完成内容**
+- 文件: `admin/src/utils/http.ts`
+- Axios 实例: baseURL `/api`, timeout 15s
+- 请求拦截器: 自动从 localStorage 读取 token 附加到 Authorization 头
+- 响应拦截器: 401→清token跳登录, 403→无权限提示, 400/404/500→统一错误提示
+
+**步骤 2-3 完成内容**
+- 文件: `admin/src/stores/auth.ts`, `admin/src/views/Login.vue`
+- Pinia auth store: login/logout/restoreFromToken, isAdmin/isManager 计算属性
+- Login.vue: Element Plus 表单 + 校验, 渐变背景, 回车/按钮登录
+
+**步骤 2-4 完成内容**
+- 文件: `admin/src/components/AppLayout.vue`, `admin/src/router/index.ts`
+- AppLayout: 可折叠侧边栏 (10 个菜单项按角色显隐), 顶部用户下拉菜单 (修改密码/退出)
+- 路由守卫: 未登录→跳转 /login, 已登录访问 /login→跳转首页, 角色权限不足→跳转 /requests
+- 页面刷新自动从 JWT token 恢复用户信息
+- TypeScript 编译零错误
 
 ### 阶段 3：PC 前端 — 核心业务页面
 
