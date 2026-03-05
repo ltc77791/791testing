@@ -67,7 +67,7 @@ const routes: RouteRecordRaw[] = [
         path: 'requests',
         name: 'Requests',
         component: () => import('../views/requests/RequestPage.vue'),
-        meta: { roles: ['user'] },
+        meta: { roles: ['operator'] },
       },
       // 审批管理
       {
@@ -122,7 +122,8 @@ router.beforeEach((to, _from, next) => {
     const hasAccess = requiredRoles.some((r) => userRoles.includes(r))
     if (!hasAccess) {
       // 无权限 → 管理员跳审批页，普通用户跳申请页
-      const fallback = userRoles.includes('admin') || userRoles.includes('manager') ? '/approvals' : '/requests'
+      const isApprover = userRoles.includes('admin') || userRoles.includes('manager')
+      const fallback = isApprover ? '/approvals' : '/requests'
       return next(fallback)
     }
   }

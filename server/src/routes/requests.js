@@ -17,7 +17,7 @@ const router = Router();
 router.use(authenticate);
 
 // Only user role can create requests (admin/manager are approvers, not applicants)
-router.post('/', requireRole('user'), validate(schemas.requests.create), createRequest);
+router.post('/', requireRole('operator'), validate(schemas.requests.create), createRequest);
 router.get('/', validate(schemas.requests.list, 'query'), listRequests);
 router.get('/:id', getRequest);
 
