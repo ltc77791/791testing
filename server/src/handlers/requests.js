@@ -10,13 +10,6 @@ async function createRequest(req, res) {
   try {
     const { items, project_location, remark } = req.body;
 
-    if (!Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ code: 1, message: '申请明细不能为空' });
-    }
-    if (!project_location) {
-      return res.status(400).json({ code: 1, message: '项目地点不能为空' });
-    }
-
     const db = getDB();
     const now = new Date();
 
@@ -341,10 +334,6 @@ async function rejectRequest(req, res) {
   try {
     const { id } = req.params;
     const { reason } = req.body;
-
-    if (!reason) {
-      return res.status(400).json({ code: 1, message: '驳回原因不能为空' });
-    }
 
     let oid;
     try { oid = new ObjectId(id); } catch {

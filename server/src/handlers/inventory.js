@@ -55,16 +55,7 @@ async function listInventory(req, res) {
 async function inbound(req, res) {
   try {
     const { part_no, serial_number, subsidiary, warehouse, condition } = req.body;
-
-    if (!part_no || !serial_number || !subsidiary || !warehouse) {
-      return res.status(400).json({ code: 1, message: '备件编号、序列号、子公司、仓库不能为空' });
-    }
-
-    const validConditions = ['全新', '利旧/返还'];
-    const cond = condition || '全新';
-    if (!validConditions.includes(cond)) {
-      return res.status(400).json({ code: 1, message: `成色必须为: ${validConditions.join(', ')}` });
-    }
+    const cond = condition;
 
     const db = getDB();
 
@@ -167,10 +158,6 @@ async function editInventory(req, res) {
       changes.push(`仓库: ${warehouse}`);
     }
     if (condition !== undefined) {
-      const validConditions = ['全新', '利旧/返还'];
-      if (!validConditions.includes(condition)) {
-        return res.status(400).json({ code: 1, message: `成色必须为: ${validConditions.join(', ')}` });
-      }
       updateFields.condition = condition;
       changes.push(`成色: ${condition}`);
     }
@@ -252,14 +239,6 @@ async function scanBySN(req, res) {
 async function batchImport(req, res) {
   try {
     const { items } = req.body;
-
-    if (!Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ code: 1, message: '导入数据不能为空' });
-    }
-
-    if (items.length > 500) {
-      return res.status(400).json({ code: 1, message: '单次导入不能超过500条' });
-    }
 
     const db = getDB();
     const now = new Date();

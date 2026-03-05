@@ -29,20 +29,7 @@ async function listUsers(req, res) {
 async function createUser(req, res) {
   try {
     const { username, password, roles } = req.body;
-
-    if (!username || !password) {
-      return res.status(400).json({ code: 1, message: '用户名和密码不能为空' });
-    }
-
-    const validRoles = ['admin', 'manager', 'operator'];
-    const userRoles = roles || ['operator'];
-    if (!userRoles.every(r => validRoles.includes(r))) {
-      return res.status(400).json({ code: 1, message: `无效角色，可选: ${validRoles.join(', ')}` });
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({ code: 1, message: '密码长度不能少于6位' });
-    }
+    const userRoles = roles;
 
     const db = getDB();
 
@@ -100,10 +87,6 @@ async function updateUser(req, res) {
     const changes = [];
 
     if (roles !== undefined) {
-      const validRoles = ['admin', 'manager', 'operator'];
-      if (!roles.every(r => validRoles.includes(r))) {
-        return res.status(400).json({ code: 1, message: `无效角色，可选: ${validRoles.join(', ')}` });
-      }
       updateFields.roles = roles;
       changes.push(`角色: ${roles.join(',')}`);
     }
@@ -114,15 +97,8 @@ async function updateUser(req, res) {
     }
 
     if (password !== undefined) {
-      if (password.length < 6) {
-        return res.status(400).json({ code: 1, message: '密码长度不能少于6位' });
-      }
       updateFields.password = await bcrypt.hash(password, 10);
       changes.push('重置密码');
-    }
-
-    if (Object.keys(updateFields).length === 0) {
-      return res.status(400).json({ code: 1, message: '没有需要更新的字段' });
     }
 
     await db.collection('users').updateOne(

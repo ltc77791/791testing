@@ -1,6 +1,7 @@
 const { Router } = require('express');
 const authenticate = require('../middleware/auth');
 const requireRole = require('../middleware/rbac');
+const { validate, schemas } = require('../utils/validate');
 const {
   listInventory,
   inbound,
@@ -15,12 +16,12 @@ const router = Router();
 router.use(authenticate);
 
 // List & scan: all authenticated users can read
-router.get('/', listInventory);
+router.get('/', validate(schemas.inventory.list, 'query'), listInventory);
 router.get('/scan/:sn', scanBySN);
 
 // Inbound, edit, batch-import: manager or admin
-router.post('/inbound', requireRole('admin', 'manager'), inbound);
-router.patch('/:id', requireRole('admin', 'manager'), editInventory);
-router.post('/batch-import', requireRole('admin', 'manager'), batchImport);
+router.post('/inbound', requireRole('admin', 'manager'), validate(schemas.inventory.inbound), inbound);
+router.patch('/:id', requireRole('admin', 'manager'), validate(schemas.inventory.edit), editInventory);
+router.post('/batch-import', requireRole('admin', 'manager'), validate(schemas.inventory.batchImport), batchImport);
 
 module.exports = router;

@@ -31,8 +31,24 @@ app.use((req, res) => {
 
 // --- Error handler ---
 app.use((err, req, res, next) => {
+  // Joi 校验错误
+  if (err.isJoi) {
+    const messages = err.details.map(d => d.message);
+    return res.status(400).json({ code: 1, message: messages.join('; '), errors: messages });
+  }
+
+  // JSON 解析错误
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({ code: 1, message: '请求体 JSON 格式错误' });
+  }
+
+  // 请求体过大
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ code: 1, message: '请求体过大，上限 10MB' });
+  }
+
   console.error('Unhandled error:', err);
-  res.status(500).json({ code: 1, message: 'Internal server error' });
+  res.status(500).json({ code: 1, message: '服务器内部错误' });
 });
 
 // --- Start ---
