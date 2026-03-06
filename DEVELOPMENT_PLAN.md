@@ -606,6 +606,21 @@ GET /api/analytics/turnover?months=6
 - 表单: 旧密码 + 新密码(≥6位) + 确认密码，el-form 校验
 - 提交后调用 `/api/auth/change-password`，成功后自动登出跳转登录页
 
+### 阶段 5.5：系统安全加固 (Security Hardening)
+
+> 目标: 提升开发与生产环境的网络与存储防线，抵御常见恶意攻击
+
+| 步骤 | 任务 | 对应后端修改 | 验证方式 | 状态 |
+|:----:|------|-------------|---------|:----:|
+| 5.5-1 | 凭证存储安全 (HttpOnly) | `handlers/auth.js`, `index.js`, 前后端 utils | 剥离 `localStorage` 存放的 token，全部交由浏览器自动传递 `HttpOnly` Cookie | ✅ 完成 |
+| 5.5-2 | 传输安全头 (Helmet) | `index.js` | 注入 `Helmet` 中间件，开启 `HSTS` (仅生产环境) | ✅ 完成 |
+| 5.5-3 | API 接口限流 (Rate Limit) | `index.js` | 增加全局 1000次/15分 限流，以及登录接口专用的 20次/15分 严格限流防爆破 | ✅ 完成 |
+| 5.5-4 | 严格 CORS 跨域控制 | `index.js`, `.env` | 通过环境变量控制 `CORS_ORIGIN` 动态白名单，不再随意放行 | ✅ 完成 |
+
+#### 步骤 5.5 完成内容
+- **后端机制**: 移除了原来粗放的返回 token 给前端，引入了 `cookie-parser`。登录成功后返回 Set-Cookie，登出提供单独的 `/api/auth/logout` 销毁 Cookie。使用 `express-rate-limit` 中间件，通过 `NODE_ENV` 动态判断本地环境并启用特性放行。
+- **前端适配**: 全面移除了 `stores/auth.ts` 中手动的 `localStorage` Token 获取，并在 `http.ts` Axios 实例中启用了 `withCredentials: true` 保证 Cookie 正确发送。修复了因重构及纯异步请求带来的路由器竞态拦截报错。
+
 ### 阶段 6（后续）：微信小程序
 
 > 目标: 将后端迁移到云函数，开发移动端操作界面
