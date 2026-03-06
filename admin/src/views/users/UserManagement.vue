@@ -91,9 +91,9 @@
         </el-form-item>
         <el-form-item label="角色" prop="roles">
           <el-select v-model="form.roles" multiple placeholder="请选择角色">
-            <el-option label="管理员" value="admin" />
-            <el-option label="仓管" value="manager" />
-            <el-option label="操作员" value="operator" />
+            <el-option label="管理员" value="admin" :disabled="form.roles.includes('operator')" />
+            <el-option label="仓管" value="manager" :disabled="form.roles.includes('operator')" />
+            <el-option label="操作员" value="operator" :disabled="form.roles.includes('admin') || form.roles.includes('manager')" />
           </el-select>
         </el-form-item>
       </el-form>

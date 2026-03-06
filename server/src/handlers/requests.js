@@ -188,7 +188,7 @@ async function getRequest(req, res) {
  * POST /api/requests/:id/approve
  * Body: { partial_items?: [{ part_no, quantity }] }
  * 审批通过：将预留的 inventory 标记出库，扣减库存计数。
- * 支持部分批准（partial_items 指定部分数量）。
+ * 支持部分批准（partial_items 明确指定要出库的序列号数组）。
  */
 async function approveRequest(req, res) {
   try {
@@ -220,22 +220,33 @@ async function approveRequest(req, res) {
     const stockDecrements = {};
 
     if (partial_items && Array.isArray(partial_items)) {
-      // Partial approval: approve only specified quantities
+      // Partial/Specific approval: approving specific serial numbers chosen by approver
       for (const pi of partial_items) {
         const reqItem = request.items.find(i => i.part_no === pi.part_no);
         if (!reqItem) continue;
 
-        const approveQty = Math.min(pi.quantity, reqItem.quantity);
-        const approved = reqItem.serial_numbers.slice(0, approveQty);
-        const released = reqItem.serial_numbers.slice(approveQty);
+        // Check that requested SNs are actually part of the reserved SNs for this request
+        const requestedSNs = new Set(pi.serial_numbers);
+        const validApproved = [];
+        const validReleased = [];
 
-        approvedSNs.push(...approved);
-        releasedSNs.push(...released);
-        outboundCount += approved.length;
-        stockDecrements[pi.part_no] = (stockDecrements[pi.part_no] || 0) + approved.length;
+        for (const sn of reqItem.serial_numbers) {
+          if (requestedSNs.has(sn)) {
+            validApproved.push(sn);
+          } else {
+            validReleased.push(sn);
+          }
+        }
+
+        approvedSNs.push(...validApproved);
+        releasedSNs.push(...validReleased);
+        outboundCount += validApproved.length;
+        if (validApproved.length > 0) {
+          stockDecrements[pi.part_no] = (stockDecrements[pi.part_no] || 0) + validApproved.length;
+        }
       }
 
-      // Release SNs for items not mentioned in partial_items
+      // Release SNs for items not mentioned in partial_items at all
       for (const reqItem of request.items) {
         if (!partial_items.find(pi => pi.part_no === reqItem.part_no)) {
           releasedSNs.push(...reqItem.serial_numbers);

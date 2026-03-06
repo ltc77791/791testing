@@ -145,17 +145,23 @@
         <el-table-column prop="part_no" label="备件编号" min-width="130" />
         <el-table-column prop="part_name" label="备件名称" min-width="140" />
         <el-table-column prop="quantity" label="申请数量" width="100" align="center" />
-        <el-table-column label="批准数量" width="140" align="center">
+        <el-table-column label="批准备件序列号" min-width="200">
           <template #default="{ row }">
-            <el-input-number
-              v-if="approveMode === 'partial'"
-              v-model="row.approve_qty"
-              :min="0"
-              :max="row.quantity"
-              size="small"
-              controls-position="right"
-            />
-            <span v-else>{{ row.quantity }}</span>
+            <el-select
+              v-model="row.approve_sns"
+              multiple
+              clearable
+              :placeholder="approveMode === 'full' ? '已全选所有预留序列号' : '请勾选批准的序列号'"
+              :disabled="approveMode === 'full'"
+              style="width: 100%"
+            >
+              <el-option
+                v-for="sn in row.reserved_sns"
+                :key="sn"
+                :label="sn"
+                :value="sn"
+              />
+            </el-select>
           </template>
         </el-table-column>
       </el-table>
@@ -207,7 +213,8 @@ interface RequestItem {
 }
 
 interface ApproveItem extends RequestItem {
-  approve_qty: number
+  reserved_sns: string[]
+  approve_sns: string[]
 }
 
 interface RequestRecord {
@@ -304,9 +311,11 @@ const approveItems = ref<ApproveItem[]>([])
 function openApproveDialog(row: RequestRecord) {
   approveTarget.value = row
   approveMode.value = 'full'
+  // 提取预留序列号供下拉使用
   approveItems.value = row.items.map(it => ({
     ...it,
-    approve_qty: it.quantity,
+    reserved_sns: it.serial_numbers || [],
+    approve_sns: it.serial_numbers || [],
   }))
   approveVisible.value = true
 }
@@ -319,13 +328,17 @@ async function handleApprove() {
 
   if (approveMode.value === 'partial') {
     const partialItems = approveItems.value
-      .filter(it => it.approve_qty > 0)
-      .map(it => ({ part_no: it.part_no, quantity: it.approve_qty }))
+      .filter(it => it.approve_sns.length > 0)
+      .map(it => ({ part_no: it.part_no, serial_numbers: it.approve_sns }))
     if (partialItems.length === 0) {
-      ElMessage.warning('请至少批准一项')
+      ElMessage.warning('请至少勾选批准一个序列号')
       return
     }
     body = { partial_items: partialItems }
+  } else {
+    // 这里是为了确保即使在 activeTab 从 partial 切换回 full 时，
+    // 依然能覆盖之前可能被取消掉的 SN 选项。
+    // 但是后端实际在 partial_items = undefined 的时候也是 full_approve 挂满
   }
 
   approving.value = true

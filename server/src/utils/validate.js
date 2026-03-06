@@ -14,7 +14,16 @@ const page = Joi.number().integer().min(1).default(1);
 const pageSize = Joi.number().integer().min(1).max(100).default(20);
 const validRoles = Joi.array()
   .items(Joi.string().valid('admin', 'manager', 'operator'))
-  .min(1);
+  .min(1)
+  .custom((value, helpers) => {
+    // 互斥校验：'admin' 或 'manager' 存在时，不能存在 'operator'
+    const hasHighRole = value.includes('admin') || value.includes('manager');
+    const hasOperator = value.includes('operator');
+    if (hasHighRole && hasOperator) {
+      return helpers.message('角色互斥：管理员(admin)或主管(manager)不能同时是操作员(operator)');
+    }
+    return value;
+  });
 const validCondition = Joi.string().valid('全新', '利旧/返还');
 const objectIdPattern = /^[0-9a-fA-F]{24}$/;
 
@@ -211,7 +220,7 @@ const schemas = {
       partial_items: Joi.array().items(
         Joi.object({
           part_no: Joi.string().trim().required(),
-          quantity: Joi.number().integer().min(1).required(),
+          serial_numbers: Joi.array().items(Joi.string().trim()).min(1).required(),
         })
       ).min(1),
     }),
