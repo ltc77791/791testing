@@ -396,8 +396,8 @@ E:\Testing\791\
 | 3-2 | 备件类型管理页面 | `part-types` 4 个接口 | 表格增删改查 + 搜索 | ✅ 完成 |
 | 3-3 | 库存列表 + 多条件筛选 + 编辑 | `inventory` GET + PATCH | 分页表格 + 筛选器 + 编辑弹窗 | ✅ 完成 (已验证+修复) |
 | 3-4 | 入库表单 + 批量导入 + 扫码查询 | `inbound` + `batch-import` + `scan` | 单件入库 + Excel 解析预览 + SN 扫码 | ✅ 完成 (已验证+修复) |
-| 3-5 | 申请出库 + 我的申请列表 | `requests` POST + GET | 多品类申请 + 状态筛选 + 撤回 | ✅ 完成 (待验证) |
-| 3-6 | 审批管理 (审批/驳回/部分批准) | `approve` + `reject` | 待审批列表 + 审批弹窗 + 部分批准 | ✅ 完成 (待验证) |
+| 3-5 | 申请出库 + 我的申请列表 | `requests` POST + GET | 多品类申请 + 状态筛选 + 撤回 | ✅ 完成 (已验证) |
+| 3-6 | 审批管理 (审批/驳回/部分批准) | `approve` + `reject` | 待审批列表 + 审批弹窗 + 部分批准 | ✅ 完成 (已验证) |
 
 **步骤 3-5 完成内容**
 - 文件: `admin/src/views/requests/RequestPage.vue`
@@ -418,6 +418,11 @@ E:\Testing\791\
   - 原因: `server/src/routes/partTypes.js` 对所有路由（含 GET 列表）统一加了 `requireRole('admin', 'manager')` 中间件，operator 无权调用 `/api/part-types`
   - 修复: 将 GET 列表接口改为仅需 `authenticate`（任何已认证用户可访问），POST/PATCH/DELETE 保留 admin/manager 权限
 
+**步骤 3-5 / 3-6 验证修复记录**
+- **Bug**: operator 角色登录后显示"登录成功"但不跳转，再次访问 5173 白屏
+  - 原因: seed 脚本中操作员角色为 `['operator']`，但前端路由 `meta: { roles: ['user'] }` 和后端 `requireRole('user')` 均使用 `user`，导致 operator 角色无任何页面可访问
+  - 修复: 前端路由 `roles: ['user']` → `roles: ['operator']`；后端 `requireRole('user')` → `requireRole('operator')`
+
 **步骤 3-3 / 3-4 验证修复记录**
 - **Bug 1**: 库存管理和备件入库页面弹出 `"pageSize" must be less than or equal to 100`
   - 原因: `InventoryList.vue` 和 `InboundPage.vue` 加载备件类型/子公司下拉时传 `pageSize: 500`，后端 Joi 校验上限为 100
@@ -429,12 +434,125 @@ E:\Testing\791\
 ### 阶段 4：PC 前端 — 数据分析仪表盘
 
 > 目标: ECharts 可视化，对应原型 ana_tab1/2/3
+> 前置条件: ECharts ^6.0 已安装（见 admin/package.json）；路由 /overview、/trend、/age 已注册（指向 Placeholder.vue，待替换）；侧边栏菜单已按 admin/manager 角色显隐
 
 | 步骤 | 任务 | 对应后端 API | 验证方式 | 状态 |
 |:----:|------|-------------|---------|:----:|
 | 4-1 | Overview: KPI 卡片 + 安全库存预警 + 库存分布 | `kpi` + `safety-stock` + `distribution` | 4 张 KPI 卡 + 预警表格 + 饼图/柱图 | ⬜ 待开发 |
 | 4-2 | Trend: 月度出入库趋势 + 消耗排行 | `trend` + `consumption` | 折线图 + Top10 横向柱图 | ⬜ 待开发 |
 | 4-3 | Age: 库龄分布 + 呆滞预警 + 周转率 | `age` + `turnover` | 分桶柱图 + 呆滞表格 + 周转率表格 | ⬜ 待开发 |
+
+#### 步骤 4-1 详细设计：Overview 数据概览
+
+**文件**: `admin/src/views/analytics/Overview.vue`
+**路由**: 替换 `/overview` 的 Placeholder.vue → `views/analytics/Overview.vue`
+**API 调用**: 并行请求 3 个接口
+
+```
+GET /api/analytics/kpi
+GET /api/analytics/safety-stock
+GET /api/analytics/distribution
+```
+
+**页面布局** (自上而下):
+
+1. **KPI 卡片行** (el-row + 4 个 el-col)
+   - 在库总数 (`in_stock`)：主数字 + 本月净变化 (`net_change`) 标签
+   - 累计出库 (`out_of_stock`)：主数字
+   - 待审批申请 (`pending_requests`)：主数字，>0 时红色高亮
+   - 本月入/出库 (`month_inbound` / `month_outbound`)：双数字卡片 + 环比箭头 (`in_delta` / `out_delta`，正↑绿 负↓红)
+   - 样式: el-card shadow="hover"，icon + 数字 + 副标题，参考现有 KpiCard 组件或新建
+
+2. **安全库存预警表格** (el-table，有预警时显示)
+   - 列: 备件编号 `part_no` | 备件名称 `part_name` | 安全库存 `min_stock` | 实际库存 `actual_stock` | 缺口 `shortage`
+   - 缺口列: 红色字体 + 警告图标
+   - 无预警时: 显示 el-empty "所有备件库存充足"
+
+3. **库存分布图表行** (el-row 两列)
+   - 左: **按备件类型分布** — ECharts 饼图 (pie)，数据来自 `distribution.by_part_type`
+   - 右: **按子公司/仓库分布** — ECharts 柱图 (bar)，X 轴 `subsidiary-warehouse`，数据来自 `distribution.by_location`
+   - 底部可选: **按新旧状态** — ECharts 环形图 (doughnut)，数据来自 `distribution.by_condition`
+
+**ECharts 使用方式**: 直接使用 `echarts.init()` + `ref` 挂载（不引入 vue-echarts），需处理 `resize` 事件
+
+#### 步骤 4-2 详细设计：Trend 趋势分析
+
+**文件**: `admin/src/views/analytics/Trend.vue`
+**路由**: 替换 `/trend` 的 Placeholder.vue → `views/analytics/Trend.vue`
+**API 调用**:
+
+```
+GET /api/analytics/trend
+GET /api/analytics/consumption?months=6
+```
+
+**页面布局**:
+
+1. **月度出入库趋势** (上半部分)
+   - ECharts 折线图 (line)，双 Y 轴可选
+   - X 轴: 月份 (`month`，格式 YYYY-MM)
+   - 两条线: 入库 (`inbound`，蓝) / 出库 (`outbound`，橙)
+   - 交互: tooltip 显示具体数值，legend 可切换显隐
+   - 数据来自 `trend` 接口返回的时间线数组
+
+2. **备件消耗排行 Top10** (下半部分左)
+   - ECharts 横向柱图 (bar, horizontal)
+   - Y 轴: 备件名称 (`part_name`)
+   - X 轴: 消耗数量 (`total_qty`)
+   - 数据来自 `consumption.top_parts`
+
+3. **项目用量统计** (下半部分右)
+   - ECharts 横向柱图或 el-table
+   - 列: 项目 `project_location` | 用量 `total_qty` | 申请次数 `request_count`
+   - 数据来自 `consumption.by_project`
+
+4. **筛选器** (页面顶部)
+   - 消耗统计周期: el-select，选项 [3个月, 6个月, 12个月]，默认 6，改变后重新请求 consumption 接口
+
+#### 步骤 4-3 详细设计：Age 库龄分析
+
+**文件**: `admin/src/views/analytics/Age.vue`
+**路由**: 替换 `/age` 的 Placeholder.vue → `views/analytics/Age.vue`
+**API 调用**:
+
+```
+GET /api/analytics/age?stale_days=90
+GET /api/analytics/turnover?months=6
+```
+
+**页面布局**:
+
+1. **库龄分布柱图** (上部)
+   - ECharts 柱图 (bar)
+   - X 轴: 4 个分桶 [0-30天, 31-90天, 91-180天, 180天以上]
+   - Y 轴: 数量 (`count`)
+   - 颜色渐变: 绿 → 黄 → 橙 → 红（越久越醒目）
+   - 数据来自 `age.distribution`
+
+2. **呆滞预警明细** (中部)
+   - 标题: "超过 N 天未出库的备件 (共 M 件)" — N = `stale_days`, M = `stale_count`
+   - el-table 列: 备件编号 | 备件名称 | 序列号 | 子公司 | 仓库 | 库龄(天) `age_days`
+   - 库龄列: 按天数着色（>180 红，>90 橙）
+   - 数据来自 `age.stale_items`
+
+3. **备件周转率表格** (下部)
+   - el-table 列: 备件编号 | 备件名称 | 出库量 `out_qty` | 在库量 `in_qty` | 周转率 `turnover_rate`
+   - 周转率: 保留 2 位小数，>1 绿色(周转快)，<0.5 红色(周转慢)
+   - 数据来自 `turnover` 接口
+
+4. **筛选器** (页面顶部)
+   - 呆滞天数: el-input-number，默认 90，范围 30-365
+   - 周转率周期: el-select，选项 [3个月, 6个月, 12个月]，默认 6
+   - 筛选变更后重新请求对应接口
+
+#### 编码顺序与注意事项
+
+1. **先建公共 ECharts 工具**: 创建 `admin/src/utils/chart.ts`，封装 `useChart(domRef)` composable，处理 init/resize/dispose 生命周期，避免三个页面重复写 resize 逻辑
+2. **按 4-1 → 4-2 → 4-3 顺序开发**，每步完成后更新路由指向真实组件
+3. **ECharts 按需引入**: 使用 `echarts/core` + 按需注册图表类型（PieChart, BarChart, LineChart），避免全量引入增大包体积
+4. **响应式**: 图表容器使用百分比宽度 + `ResizeObserver` 自动 resize
+5. **加载态**: 页面初始化时显示 `v-loading`，数据返回后渲染图表
+6. **错误处理**: API 失败时 fallback 显示 el-empty，不阻塞其他区块
 
 ### 阶段 5：PC 前端 — 辅助功能
 
