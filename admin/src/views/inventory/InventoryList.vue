@@ -56,6 +56,7 @@
       </el-select>
 
       <el-button style="margin-left: 12px" @click="handleReset">重置</el-button>
+      <el-button style="margin-left: auto" type="success" plain :loading="exporting" @click="handleExport">导出 CSV</el-button>
     </div>
 
     <!-- 库存表格 -->
@@ -181,6 +182,7 @@ interface PartTypeOption {
 }
 
 const loading = ref(false)
+const exporting = ref(false)
 const submitting = ref(false)
 const tableData = ref<InventoryRecord[]>([])
 const currentPage = ref(1)
@@ -280,6 +282,25 @@ function handleReset() {
   filters.subsidiary = ''
   filters.status = undefined
   handleSearch()
+}
+
+async function handleExport() {
+  exporting.value = true
+  try {
+    const res = await http.get('/export/inventory', { responseType: 'blob' })
+    const blob = new Blob([res as any], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'inventory_export.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+    ElMessage.success('导出成功')
+  } catch {
+    // handled by interceptor
+  } finally {
+    exporting.value = false
+  }
 }
 
 onMounted(() => {

@@ -106,16 +106,33 @@
     </el-container>
   </el-container>
 
-  <!-- 修改密码弹窗 (预留) -->
-  <el-dialog v-model="showChangePassword" title="修改密码" width="400px">
-    <p>修改密码功能将在步骤 5-3 实现</p>
+  <!-- 修改密码弹窗 -->
+  <el-dialog v-model="showChangePassword" title="修改密码" width="420px" @close="resetPwdForm">
+    <el-form ref="pwdFormRef" :model="pwdForm" :rules="pwdRules" label-width="80px">
+      <el-form-item label="旧密码" prop="oldPassword">
+        <el-input v-model="pwdForm.oldPassword" type="password" show-password placeholder="请输入当前密码" />
+      </el-form-item>
+      <el-form-item label="新密码" prop="newPassword">
+        <el-input v-model="pwdForm.newPassword" type="password" show-password placeholder="至少6位" />
+      </el-form-item>
+      <el-form-item label="确认密码" prop="confirmPassword">
+        <el-input v-model="pwdForm.confirmPassword" type="password" show-password placeholder="再次输入新密码" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="showChangePassword = false">取消</el-button>
+      <el-button type="primary" :loading="changingPwd" @click="handleChangePwd">确认修改</el-button>
+    </template>
   </el-dialog>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import type { FormInstance } from 'element-plus'
 import { useAuthStore } from '../stores/auth'
+import http from '../utils/http'
 import {
   DataAnalysis, TrendCharts, Timer, User, Files, Box,
   Download, DocumentAdd, Stamp, Document, UserFilled, ArrowDown,
@@ -145,6 +162,61 @@ const currentMenuTitle = computed(() => menuMap[route.path] || '备件管理系�
 function handleLogout() {
   authStore.logout()
   router.replace('/login')
+}
+
+// ── 修改密码 ──
+const pwdFormRef = ref<FormInstance>()
+const changingPwd = ref(false)
+const pwdForm = reactive({
+  oldPassword: '',
+  newPassword: '',
+  confirmPassword: '',
+})
+
+const pwdRules = {
+  oldPassword: [{ required: true, message: '请输入旧密码', trigger: 'blur' }],
+  newPassword: [
+    { required: true, message: '请输入新密码', trigger: 'blur' },
+    { min: 6, message: '密码至少6位', trigger: 'blur' },
+  ],
+  confirmPassword: [
+    { required: true, message: '请确认新密码', trigger: 'blur' },
+    {
+      validator: (_rule: any, value: string, callback: any) => {
+        if (value !== pwdForm.newPassword) callback(new Error('两次密码不一致'))
+        else callback()
+      },
+      trigger: 'blur',
+    },
+  ],
+}
+
+function resetPwdForm() {
+  pwdForm.oldPassword = ''
+  pwdForm.newPassword = ''
+  pwdForm.confirmPassword = ''
+  pwdFormRef.value?.resetFields()
+}
+
+async function handleChangePwd() {
+  const valid = await pwdFormRef.value?.validate().catch(() => false)
+  if (!valid) return
+
+  changingPwd.value = true
+  try {
+    await http.post('/auth/change-password', {
+      oldPassword: pwdForm.oldPassword,
+      newPassword: pwdForm.newPassword,
+    })
+    ElMessage.success('密码修改成功，请重新登录')
+    showChangePassword.value = false
+    authStore.logout()
+    router.replace('/login')
+  } catch {
+    // handled by interceptor
+  } finally {
+    changingPwd.value = false
+  }
 }
 </script>
 

@@ -19,19 +19,19 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'overview',
         name: 'Overview',
-        component: () => import('../views/Placeholder.vue'),
+        component: () => import('../views/analytics/Overview.vue'),
         meta: { roles: ['admin', 'manager'] },
       },
       {
         path: 'trend',
         name: 'Trend',
-        component: () => import('../views/Placeholder.vue'),
+        component: () => import('../views/analytics/Trend.vue'),
         meta: { roles: ['admin', 'manager'] },
       },
       {
         path: 'age',
         name: 'Age',
-        component: () => import('../views/Placeholder.vue'),
+        component: () => import('../views/analytics/Age.vue'),
         meta: { roles: ['admin', 'manager'] },
       },
       // 用户管理
@@ -80,7 +80,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'logs',
         name: 'Logs',
-        component: () => import('../views/Placeholder.vue'),
+        component: () => import('../views/logs/LogViewer.vue'),
         meta: { roles: ['admin', 'manager'] },
       },
     ],

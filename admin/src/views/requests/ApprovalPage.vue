@@ -26,6 +26,7 @@
 
       <el-button style="margin-left: 12px" type="primary" @click="handleSearch">查询</el-button>
       <el-button @click="handleReset">重置</el-button>
+      <el-button style="margin-left: auto" type="success" plain :loading="exporting" @click="handleExport">导出 CSV</el-button>
     </div>
 
     <!-- 申请列表 -->
@@ -225,6 +226,7 @@ interface RequestRecord {
 
 // ======== 列表 ========
 const loading = ref(false)
+const exporting = ref(false)
 const tableData = ref<RequestRecord[]>([])
 const currentPage = ref(1)
 const pageSize = ref(20)
@@ -262,6 +264,25 @@ function handleReset() {
   filters.status = ''
   filters.applicant = ''
   handleSearch()
+}
+
+async function handleExport() {
+  exporting.value = true
+  try {
+    const res = await http.get('/export/requests', { responseType: 'blob' })
+    const blob = new Blob([res as any], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'requests_export.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+    ElMessage.success('导出成功')
+  } catch {
+    // handled by interceptor
+  } finally {
+    exporting.value = false
+  }
 }
 
 // ======== 详情 ========
