@@ -1,69 +1,61 @@
 <template>
   <div v-loading="loading" class="overview-page">
     <!-- KPI 卡片 -->
-    <el-row :gutter="16" class="kpi-row">
-      <el-col :span="6">
-        <el-card shadow="hover" class="kpi-card">
-          <div class="kpi-icon" style="background: #409eff">
-            <el-icon :size="28"><Box /></el-icon>
+    <div class="kpi-row">
+      <el-card shadow="hover" class="kpi-card">
+        <div class="kpi-icon" style="background: #409eff">
+          <el-icon :size="28"><Box /></el-icon>
+        </div>
+        <div class="kpi-body">
+          <div class="kpi-value">{{ kpi.in_stock }}</div>
+          <div class="kpi-label">在库总数</div>
+          <div v-if="kpi.net_change !== 0" class="kpi-delta" :class="kpi.net_change > 0 ? 'up' : 'down'">
+            {{ kpi.net_change > 0 ? '+' : '' }}{{ kpi.net_change }} 本月净变化
           </div>
-          <div class="kpi-body">
-            <div class="kpi-value">{{ kpi.in_stock }}</div>
-            <div class="kpi-label">在库总数</div>
-            <div v-if="kpi.net_change !== 0" class="kpi-delta" :class="kpi.net_change > 0 ? 'up' : 'down'">
-              {{ kpi.net_change > 0 ? '+' : '' }}{{ kpi.net_change }} 本月净变化
-            </div>
+        </div>
+      </el-card>
+      <el-card shadow="hover" class="kpi-card">
+        <div class="kpi-icon" style="background: #e6a23c">
+          <el-icon :size="28"><Upload /></el-icon>
+        </div>
+        <div class="kpi-body">
+          <div class="kpi-value">{{ kpi.out_of_stock }}</div>
+          <div class="kpi-label">累计出库</div>
+        </div>
+      </el-card>
+      <el-card shadow="hover" class="kpi-card">
+        <div class="kpi-icon" :style="{ background: kpi.pending_requests > 0 ? '#f56c6c' : '#67c23a' }">
+          <el-icon :size="28"><Bell /></el-icon>
+        </div>
+        <div class="kpi-body">
+          <div class="kpi-value" :class="{ 'text-danger': kpi.pending_requests > 0 }">
+            {{ kpi.pending_requests }}
           </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover" class="kpi-card">
-          <div class="kpi-icon" style="background: #e6a23c">
-            <el-icon :size="28"><Upload /></el-icon>
+          <div class="kpi-label">待审批申请</div>
+        </div>
+      </el-card>
+      <el-card shadow="hover" class="kpi-card">
+        <div class="kpi-icon" style="background: #67c23a">
+          <el-icon :size="28"><Sort /></el-icon>
+        </div>
+        <div class="kpi-body">
+          <div class="kpi-value">
+            <span>{{ kpi.month_inbound }}</span>
+            <span class="kpi-sep">/</span>
+            <span>{{ kpi.month_outbound }}</span>
           </div>
-          <div class="kpi-body">
-            <div class="kpi-value">{{ kpi.out_of_stock }}</div>
-            <div class="kpi-label">累计出库</div>
+          <div class="kpi-label">本月入库 / 出库</div>
+          <div class="kpi-delta-row">
+            <span class="kpi-delta" :class="kpi.in_delta >= 0 ? 'up' : 'down'">
+              入{{ kpi.in_delta >= 0 ? '↑' : '↓' }}{{ Math.abs(kpi.in_delta) }}
+            </span>
+            <span class="kpi-delta" :class="kpi.out_delta >= 0 ? 'up' : 'down'">
+              出{{ kpi.out_delta >= 0 ? '↑' : '↓' }}{{ Math.abs(kpi.out_delta) }}
+            </span>
           </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover" class="kpi-card">
-          <div class="kpi-icon" :style="{ background: kpi.pending_requests > 0 ? '#f56c6c' : '#67c23a' }">
-            <el-icon :size="28"><Bell /></el-icon>
-          </div>
-          <div class="kpi-body">
-            <div class="kpi-value" :class="{ 'text-danger': kpi.pending_requests > 0 }">
-              {{ kpi.pending_requests }}
-            </div>
-            <div class="kpi-label">待审批申请</div>
-          </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover" class="kpi-card">
-          <div class="kpi-icon" style="background: #67c23a">
-            <el-icon :size="28"><Sort /></el-icon>
-          </div>
-          <div class="kpi-body">
-            <div class="kpi-value">
-              <span>{{ kpi.month_inbound }}</span>
-              <span class="kpi-sep">/</span>
-              <span>{{ kpi.month_outbound }}</span>
-            </div>
-            <div class="kpi-label">本月入库 / 出库</div>
-            <div class="kpi-delta-row">
-              <span class="kpi-delta" :class="kpi.in_delta >= 0 ? 'up' : 'down'">
-                入{{ kpi.in_delta >= 0 ? '↑' : '↓' }}{{ Math.abs(kpi.in_delta) }}
-              </span>
-              <span class="kpi-delta" :class="kpi.out_delta >= 0 ? 'up' : 'down'">
-                出{{ kpi.out_delta >= 0 ? '↑' : '↓' }}{{ Math.abs(kpi.out_delta) }}
-              </span>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
+        </div>
+      </el-card>
+    </div>
 
     <!-- 安全库存预警 -->
     <el-card class="section-card">
@@ -92,25 +84,21 @@
     </el-card>
 
     <!-- 库存分布图表 -->
-    <el-row :gutter="16" class="chart-row">
-      <el-col :span="12">
-        <el-card class="section-card">
-          <template #header>按备件类型分布</template>
-          <div ref="pieRef" class="chart-container" />
-        </el-card>
-      </el-col>
-      <el-col :span="12">
-        <el-card class="section-card">
-          <template #header>按子公司/仓库分布</template>
-          <div ref="barRef" class="chart-container" />
-        </el-card>
-      </el-col>
-    </el-row>
+    <div class="chart-row">
+      <el-card class="section-card chart-card">
+        <template #header>按备件类型分布</template>
+        <div ref="pieRef" class="chart-container" />
+      </el-card>
+      <el-card class="section-card chart-card">
+        <template #header>按子公司/仓库分布</template>
+        <div ref="barRef" class="chart-container" />
+      </el-card>
+    </div>
 
     <!-- 按新旧状态分布 -->
     <el-card class="section-card">
       <template #header>按新旧状态分布</template>
-      <div ref="condRef" class="chart-container" style="height: 280px" />
+      <div ref="condRef" class="chart-container" />
     </el-card>
   </div>
 </template>
@@ -159,16 +147,21 @@ onMounted(async () => {
     // 饼图 — 按备件类型
     setPieOption({
       tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
-      legend: { bottom: 0, type: 'scroll' },
+      legend: { bottom: 0, type: 'scroll', textStyle: { fontSize: 11 } },
       series: [{
         type: 'pie',
-        radius: ['0%', '65%'],
+        radius: ['0%', '55%'],
         center: ['50%', '45%'],
         data: dist.by_part_type.map((d: any) => ({
           name: d.part_name,
           value: d.count,
         })),
-        label: { formatter: '{b}\n{c}' },
+        label: {
+          formatter: '{b}\n{c}',
+          fontSize: 11,
+          overflow: 'truncate',
+          ellipsis: '…',
+        },
         emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.2)' } },
       }],
     })
@@ -180,13 +173,18 @@ onMounted(async () => {
     }))
     setBarOption({
       tooltip: { trigger: 'axis' },
-      grid: { left: 20, right: 20, bottom: 40, containLabel: true },
+      grid: { left: 10, right: 10, bottom: 50, top: 30, containLabel: true },
       xAxis: {
         type: 'category',
         data: barData.map((d: any) => d.name),
-        axisLabel: { rotate: 30, fontSize: 11 },
+        axisLabel: {
+          rotate: 30,
+          fontSize: 11,
+          overflow: 'truncate',
+          width: 70,
+        },
       },
-      yAxis: { type: 'value', name: '数量' },
+      yAxis: { type: 'value', name: '数量', nameTextStyle: { fontSize: 11 } },
       series: [{
         type: 'bar',
         data: barData.map((d: any) => d.value),
@@ -207,16 +205,16 @@ onMounted(async () => {
     // 环形图 — 按新旧状态
     setCondOption({
       tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
-      legend: { bottom: 0 },
+      legend: { bottom: 0, textStyle: { fontSize: 11 } },
       series: [{
         type: 'pie',
-        radius: ['40%', '65%'],
+        radius: ['40%', '60%'],
         center: ['50%', '42%'],
         data: dist.by_condition.map((d: any) => ({
           name: d.condition,
           value: d.count,
         })),
-        label: { formatter: '{b}: {c}' },
+        label: { formatter: '{b}: {c}', fontSize: 11 },
       }],
     })
   } catch {
@@ -232,27 +230,31 @@ onMounted(async () => {
   padding-bottom: 20px;
 }
 
+/* ── KPI 卡片: flex-wrap 自适应 ── */
 .kpi-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
   margin-bottom: 16px;
 }
 
 .kpi-card {
-  display: flex;
-  align-items: center;
+  flex: 1 1 200px;
+  min-width: 200px;
 }
 
 .kpi-card :deep(.el-card__body) {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 16px 20px;
+  gap: 12px;
+  padding: 16px;
   width: 100%;
 }
 
 .kpi-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 12px;
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -266,27 +268,30 @@ onMounted(async () => {
 }
 
 .kpi-value {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 700;
   color: #303133;
   line-height: 1.2;
+  white-space: nowrap;
 }
 
 .kpi-sep {
-  font-size: 20px;
+  font-size: 18px;
   color: #909399;
   margin: 0 2px;
 }
 
 .kpi-label {
-  font-size: 13px;
+  font-size: 12px;
   color: #909399;
   margin-top: 2px;
+  white-space: nowrap;
 }
 
 .kpi-delta {
-  font-size: 12px;
+  font-size: 11px;
   margin-top: 2px;
+  white-space: nowrap;
 }
 
 .kpi-delta.up {
@@ -299,7 +304,7 @@ onMounted(async () => {
 
 .kpi-delta-row {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   margin-top: 2px;
 }
 
@@ -318,12 +323,36 @@ onMounted(async () => {
   font-weight: 600;
 }
 
+/* ── 图表行: flex 并排, 窄屏竖排 ── */
 .chart-row {
+  display: flex;
+  gap: 16px;
   margin-bottom: 0;
 }
 
+.chart-card {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
 .chart-container {
-  height: 350px;
   width: 100%;
+  height: 320px;
+  min-height: 240px;
+}
+
+/* ── 窄屏: 图表竖排 ── */
+@media (max-width: 768px) {
+  .chart-row {
+    flex-direction: column;
+  }
+
+  .chart-container {
+    height: 280px;
+  }
+
+  .kpi-card {
+    flex: 1 1 calc(50% - 16px);
+  }
 }
 </style>
