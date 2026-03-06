@@ -1,10 +1,11 @@
 ### Health Check
-GET http://localhost:3000/api/health
+GET http://localhost:5501/api/health
 
 ### ===== 步骤 1-2: 认证 =====
 
-### Login as admin
-POST http://localhost:3000/api/auth/login
+### 2. Login (Normal)
+# @name loginAdmin
+POST http://localhost:5501/api/auth/login
 Content-Type: application/json
 
 {
@@ -13,7 +14,7 @@ Content-Type: application/json
 }
 
 ### Login - wrong password (expect 401)
-POST http://localhost:3000/api/auth/login
+POST http://localhost:5501/api/auth/login
 Content-Type: application/json
 
 {
@@ -22,7 +23,7 @@ Content-Type: application/json
 }
 
 ### Change password (replace <token> with actual token from login)
-POST http://localhost:3000/api/auth/change-password
+POST http://localhost:5501/api/auth/change-password
 Content-Type: application/json
 Authorization: Bearer <token>
 
@@ -34,11 +35,11 @@ Authorization: Bearer <token>
 ### ===== 步骤 1-3: 用户管理 =====
 
 ### List Users (admin only)
-GET http://localhost:3000/api/users
-Authorization: Bearer <token>
+GET http://localhost:5501/api/users
+Authorization: Bearer {{token}}
 
-### Create User
-POST http://localhost:3000/api/users
+### 4. Create User (Admin Only)
+POST http://localhost:5501/api/users
 Content-Type: application/json
 Authorization: Bearer <token>
 
@@ -49,7 +50,7 @@ Authorization: Bearer <token>
 }
 
 ### Create Manager User
-POST http://localhost:3000/api/users
+POST http://localhost:5501/api/users
 Content-Type: application/json
 Authorization: Bearer <token>
 
@@ -60,7 +61,7 @@ Authorization: Bearer <token>
 }
 
 ### Update User Role
-PATCH http://localhost:3000/api/users/张伟
+PATCH http://localhost:5501/api/users/张伟
 Content-Type: application/json
 Authorization: Bearer <token>
 
@@ -69,7 +70,7 @@ Authorization: Bearer <token>
 }
 
 ### Disable User
-PATCH http://localhost:3000/api/users/张伟
+PATCH http://localhost:5501/api/users/张伟
 Content-Type: application/json
 Authorization: Bearer <token>
 
@@ -78,22 +79,25 @@ Authorization: Bearer <token>
 }
 
 ### Delete User
-DELETE http://localhost:3000/api/users/张伟
-Authorization: Bearer <token>
+DELETE http://localhost:5501/api/users/张伟
+Authorization: Bearer {{token}}
 
 ### No token (expect 401)
-GET http://localhost:3000/api/users
+GET http://localhost:5501/api/users
+
+### 8. GET users again
+GET http://localhost:5501/api/users
 
 ### ===== 后续步骤占位 =====
 
 ### List Part Types (after step 1-4)
-GET http://localhost:3000/api/part-types
-Authorization: Bearer <token>
+GET http://localhost:5501/api/part-types
+Authorization: Bearer {{token}}
 
-### List Inventory (after step 1-5)
-GET http://localhost:3000/api/inventory?page=1&size=20
-Authorization: Bearer <token>
+### 10. GET inventory (All logged in)
+GET http://localhost:5501/api/inventory?page=1&size=20
+Authorization: Bearer {{token}}
 
-### KPI Summary (after step 1-7)
-GET http://localhost:3000/api/analytics/kpi
+### 11. analytics
+GET http://localhost:5501/api/analytics/kpi
 Authorization: Bearer <token>

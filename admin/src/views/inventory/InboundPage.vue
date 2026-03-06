@@ -309,8 +309,9 @@ function handleFileChange(file: UploadFile) {
     try {
       const data = new Uint8Array(e.target!.result as ArrayBuffer)
       const workbook = XLSX.read(data, { type: 'array' })
-      const sheet = workbook.Sheets[workbook.SheetNames[0]]
-      const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' })
+      const firstSheetName = workbook.SheetNames[0] || ''
+      const sheet = workbook.Sheets[firstSheetName]
+      const rows: any[] = sheet ? XLSX.utils.sheet_to_json(sheet, { defval: '' }) : []
 
       if (rows.length === 0) {
         ElMessage.warning('文件中没有数据')

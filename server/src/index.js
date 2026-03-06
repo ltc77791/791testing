@@ -1,13 +1,35 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const cookieParser = require('cookie-parser');
 const config = require('./config');
 const { connectDB, initCollections } = require('./db');
 
 const app = express();
 
-// --- Middleware ---
-app.use(cors());
+// --- Security & Middleware ---
+// 1. Helmet: HSTS 仅在生产环境开启（避免本地 localhost 报错）
+app.use(helmet({
+  hsts: config.nodeEnv === 'production',
+}));
+
+// 2. CORS: 限制白名单，允许携 Cookie
+app.use(cors({
+  origin: config.corsOrigin,
+  credentials: true,
+}));
+
+// 3. Rate Limit: 防暴力请求，全局 15 分钟最多 1000 次，后续可单独对 /login 做严格限制
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 1000,
+  message: { code: 1, message: '请求过于频繁，请稍后再试' },
+});
+app.use(globalLimiter);
+
 app.use(express.json({ limit: '10mb' }));
+app.use(cookieParser());
 
 // --- Health check ---
 app.get('/api/health', (req, res) => {
@@ -15,6 +37,14 @@ app.get('/api/health', (req, res) => {
 });
 
 // --- Routes ---
+// 登录接口配置更严格的限流防爆破 (15分钟 20次)
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { code: 1, message: '登录请求过多，请 15 分钟后再试' },
+});
+app.use('/api/auth/login', loginLimiter);
+
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/part-types', require('./routes/partTypes'));

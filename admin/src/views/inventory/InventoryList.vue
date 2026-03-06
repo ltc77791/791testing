@@ -239,7 +239,7 @@ async function loadOptions() {
 
   // 从库存数据中提取子公司列表
   try {
-    const res: any = await http.get('/inventory', { params: { pageSize: 1 } })
+    await http.get('/inventory', { params: { pageSize: 1 } })
     // 后端没有单独的子公司接口，从完整列表中提取
     const allRes: any = await http.get('/inventory', { params: { pageSize: 100 } })
     const subs = new Set<string>()

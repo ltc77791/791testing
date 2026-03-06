@@ -1,4 +1,4 @@
-import { onMounted, onBeforeUnmount, ref, type Ref, shallowRef, watch } from 'vue'
+import { onMounted, onBeforeUnmount, type Ref, shallowRef } from 'vue'
 import * as echarts from 'echarts/core'
 import { BarChart, PieChart, LineChart } from 'echarts/charts'
 import {
@@ -36,7 +36,7 @@ export function useChart(domRef: Ref<HTMLElement | undefined>) {
     chart.value?.dispose()
   })
 
-  function setOption(option: echarts.EChartsOption) {
+  function setOption(option: echarts.EChartsCoreOption) {
     chart.value?.setOption(option, true)
   }
 

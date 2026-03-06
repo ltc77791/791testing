@@ -34,10 +34,17 @@ async function login(req, res) {
     const payload = { username: user.username, roles: user.roles };
     const token = jwt.sign(payload, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
 
+    // Set JWT in HttpOnly Cookie
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: config.nodeEnv === 'production',
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    });
+
     res.json({
       code: 0,
       data: {
-        token,
         user: { username: user.username, roles: user.roles },
       },
     });
@@ -81,4 +88,13 @@ async function changePassword(req, res) {
   }
 }
 
-module.exports = { login, changePassword };
+/**
+ * POST /api/auth/logout
+ * Clears the HttpOnly cookie
+ */
+async function logout(req, res) {
+  res.clearCookie('token');
+  res.json({ code: 0, message: '登出成功' });
+}
+
+module.exports = { login, changePassword, logout };

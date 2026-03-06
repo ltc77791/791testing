@@ -2,19 +2,14 @@ import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import router from '../router'
 
-const TOKEN_KEY = 'sp_token'
-
 const http = axios.create({
   baseURL: '/api',
   timeout: 15000,
+  withCredentials: true, // 重要：允许跨域请求携带 Cookie
 })
 
-// 请求拦截器: 自动附加 JWT token
+// 请求拦截器: 移除手动 JWT 注入，由浏览器管理 HttpOnly Cookie
 http.interceptors.request.use((config) => {
-  const token = localStorage.getItem(TOKEN_KEY)
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
   return config
 })
 
@@ -26,7 +21,7 @@ http.interceptors.response.use(
     const msg = err.response?.data?.message
 
     if (status === 401) {
-      localStorage.removeItem(TOKEN_KEY)
+      localStorage.removeItem('sp_user') // 清除登录态
       router.replace('/login')
       ElMessage.error(msg || '登录已过期，请重新登录')
     } else if (status === 403) {
@@ -49,5 +44,4 @@ http.interceptors.response.use(
   },
 )
 
-export { TOKEN_KEY }
 export default http

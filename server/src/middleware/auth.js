@@ -7,12 +7,18 @@ const config = require('../config');
  * and attaches decoded user info to req.user.
  */
 function authenticate(req, res, next) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ code: 1, message: '未登录或 token 缺失' });
+  // Support extracting token from HttpOnly Cookie or conventional Authorization header
+  let token = req.cookies?.token;
+  if (!token) {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.slice(7);
+    }
   }
 
-  const token = authHeader.slice(7);
+  if (!token) {
+    return res.status(401).json({ code: 1, message: '未登录或 token 缺失' });
+  }
   try {
     const decoded = jwt.verify(token, config.jwtSecret);
     req.user = decoded; // { username, roles, iat, exp }

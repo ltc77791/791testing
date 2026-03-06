@@ -96,10 +96,8 @@ const router = createRouter({
 router.beforeEach((to, _from, next) => {
   const authStore = useAuthStore()
 
-  // 刷新页面时从 token 恢复用户信息
-  if (!authStore.user && authStore.token) {
-    authStore.restoreFromToken()
-  }
+  // 刷新页面时如果本地有 user 数据，尝试恢复
+  authStore.restoreFromToken()
 
   // 公开页面直接放行
   if (to.meta.public) {

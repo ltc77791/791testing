@@ -356,7 +356,7 @@ E:\Testing\791\
 
 | 步骤 | 任务 | 涉及文件 | 验证方式 | 状态 |
 |:----:|------|---------|---------|:----:|
-| 2-1 | Vite 脚手架 + 代理 `/api → :3000` | `vite.config.ts`, `package.json` | 5 项验证全部通过（见下方小结） | ✅ 完成 |
+| 2-1 | Vite 脚手架 + 代理 `/api → :5501` | `vite.config.ts`, `package.json` | 5 项验证全部通过（见下方小结） | ✅ 完成 |
 | 2-2 | Axios 封装 + JWT 拦截器 | `utils/http.ts` | 手动测试请求自动带 token | ✅ 完成 |
 | 2-3 | Pinia auth store + Login.vue | `stores/auth.ts`, `views/Login.vue` | admin/admin123 登录成功 | ✅ 完成 |
 | 2-4 | AppLayout 侧边栏 + 路由守卫 | `components/AppLayout.vue`, `router/index.ts` | 未登录跳转登录页，菜单按角色显示 | ✅ 完成 |
@@ -700,5 +700,5 @@ GET    /api/export/analytics        # 步骤 1-8
 - Node.js: 18 LTS
 - MongoDB: 7.0 (Docker Desktop 或 MSI 直装)
 - 编辑器: VS Code
-- 后端端口: localhost:3000
-- 前端端口: localhost:5173 (Vite 代理 /api → :3000)
+- 后端端口: localhost:5501
+- 前端端口: localhost:5173 (Vite 代理 /api → :5501)
