@@ -438,8 +438,8 @@ E:\Testing\791\
 
 | 步骤 | 任务 | 对应后端 API | 验证方式 | 状态 |
 |:----:|------|-------------|---------|:----:|
-| 4-1 | Overview: KPI 卡片 + 安全库存预警 + 库存分布 | `kpi` + `safety-stock` + `distribution` | 4 张 KPI 卡 + 预警表格 + 饼图/柱图 | ⬜ 待开发 |
-| 4-2 | Trend: 月度出入库趋势 + 消耗排行 | `trend` + `consumption` | 折线图 + Top10 横向柱图 | ⬜ 待开发 |
+| 4-1 | Overview: KPI 卡片 + 安全库存预警 + 库存分布 | `kpi` + `safety-stock` + `distribution` | 4 张 KPI 卡 + 预警表格 + 饼图/柱图 | ✅ 完成 |
+| 4-2 | Trend: 月度出入库趋势 + 消耗排行 | `trend` + `consumption` | 折线图 + Top10 横向柱图 | ✅ 完成 |
 | 4-3 | Age: 库龄分布 + 呆滞预警 + 周转率 | `age` + `turnover` | 分桶柱图 + 呆滞表格 + 周转率表格 | ⬜ 待开发 |
 
 #### 步骤 4-1 详细设计：Overview 数据概览

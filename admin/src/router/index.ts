@@ -25,7 +25,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'trend',
         name: 'Trend',
-        component: () => import('../views/Placeholder.vue'),
+        component: () => import('../views/analytics/Trend.vue'),
         meta: { roles: ['admin', 'manager'] },
       },
       {
