@@ -440,7 +440,7 @@ E:\Testing\791\
 |:----:|------|-------------|---------|:----:|
 | 4-1 | Overview: KPI 卡片 + 安全库存预警 + 库存分布 | `kpi` + `safety-stock` + `distribution` | 4 张 KPI 卡 + 预警表格 + 饼图/柱图 | ✅ 完成 |
 | 4-2 | Trend: 月度出入库趋势 + 消耗排行 | `trend` + `consumption` | 折线图 + Top10 横向柱图 | ✅ 完成 |
-| 4-3 | Age: 库龄分布 + 呆滞预警 + 周转率 | `age` + `turnover` | 分桶柱图 + 呆滞表格 + 周转率表格 | ⬜ 待开发 |
+| 4-3 | Age: 库龄分布 + 呆滞预警 + 周转率 | `age` + `turnover` | 分桶柱图 + 呆滞表格 + 周转率表格 | ✅ 完成 |
 
 #### 步骤 4-1 详细设计：Overview 数据概览
 
@@ -544,6 +544,31 @@ GET /api/analytics/turnover?months=6
    - 呆滞天数: el-input-number，默认 90，范围 30-365
    - 周转率周期: el-select，选项 [3个月, 6个月, 12个月]，默认 6
    - 筛选变更后重新请求对应接口
+
+#### 步骤 4-1 完成内容
+- 文件: `admin/src/views/analytics/Overview.vue`, `admin/src/utils/chart.ts`
+- 公共 ECharts 工具: `useChart(domRef)` composable，封装 init/ResizeObserver/dispose 生命周期
+- KPI 卡片行: flex-wrap 自适应布局，4 张卡片（在库总数+净变化、累计出库、待审批、本月入出库+环比）
+- 安全库存预警: el-table 显示缺口，无预警时 el-empty
+- 库存分布图表: 饼图（按备件类型）+ 柱图（按子公司/仓库）+ 环形图（按新旧状态）
+- 响应式优化: 图表标签/图例缩小字号+截断，窄屏自动竖排
+- Bug 修复: http 拦截器已解包 `res.data`，前端读取改为 `kpiRes.data` 而非 `kpiRes.data.data`
+
+#### 步骤 4-2 完成内容
+- 文件: `admin/src/views/analytics/Trend.vue`
+- 月度出入库趋势: 双折线图（入库蓝/出库橙），平滑曲线+面积填充
+- 备件消耗排行 Top 10: 横向柱图，红→橙渐变
+- 项目用量统计: el-table（项目地点/用量/申请次数），可排序
+- 筛选器: 消耗周期下拉（3/6/12个月），切换后动态刷新 consumption 接口
+- 响应式布局: flex + 窄屏竖排，与 Overview 风格统一
+
+#### 步骤 4-3 完成内容
+- 文件: `admin/src/views/analytics/Age.vue`
+- 库龄分布柱图: 4 档分桶（0-30/31-90/91-180/180+天），绿→黄→橙→红渐变，柱顶显示数值
+- 呆滞预警明细: el-table 显示超期备件详情，库龄按天数着色（>180红, >90橙）
+- 备件周转率表格: 出库量/在库量/周转率，周转率着色（≥1绿, <0.5红, 中间橙）
+- 筛选器: 呆滞天数 input-number（30-365，步长30）+ 周转率周期下拉（3/6/12个月），切换动态刷新
+- 路由从 Placeholder.vue 指向真实组件
 
 #### 编码顺序与注意事项
 

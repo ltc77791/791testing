@@ -31,7 +31,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'age',
         name: 'Age',
-        component: () => import('../views/Placeholder.vue'),
+        component: () => import('../views/analytics/Age.vue'),
         meta: { roles: ['admin', 'manager'] },
       },
       // 用户管理
