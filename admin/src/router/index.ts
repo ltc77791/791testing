@@ -19,7 +19,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'overview',
         name: 'Overview',
-        component: () => import('../views/Placeholder.vue'),
+        component: () => import('../views/analytics/Overview.vue'),
         meta: { roles: ['admin', 'manager'] },
       },
       {
