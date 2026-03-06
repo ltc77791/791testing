@@ -159,8 +159,8 @@ const menuMap: Record<string, string> = {
 
 const currentMenuTitle = computed(() => menuMap[route.path] || '备件管理系统')
 
-function handleLogout() {
-  authStore.logout()
+async function handleLogout() {
+  await authStore.logout()
   router.replace('/login')
 }
 

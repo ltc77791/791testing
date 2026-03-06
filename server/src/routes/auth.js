@@ -1,7 +1,7 @@
 const { Router } = require('express');
 const authenticate = require('../middleware/auth');
 const { validate, schemas } = require('../utils/validate');
-const { login, changePassword } = require('../handlers/auth');
+const { login, changePassword, logout } = require('../handlers/auth');
 
 const router = Router();
 
