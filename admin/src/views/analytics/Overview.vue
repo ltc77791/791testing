@@ -1,5 +1,10 @@
 <template>
   <div v-loading="loading" class="overview-page">
+    <!-- 导出按钮 -->
+    <div class="export-bar">
+      <el-button type="success" plain :loading="exporting" @click="handleExport">导出分析报告 CSV</el-button>
+    </div>
+
     <!-- KPI 卡片 -->
     <div class="kpi-row">
       <el-card shadow="hover" class="kpi-card">
@@ -110,6 +115,25 @@ import http from '../../utils/http'
 import { useChart } from '../../utils/chart'
 
 const loading = ref(true)
+const exporting = ref(false)
+
+async function handleExport() {
+  exporting.value = true
+  try {
+    const res = await http.get('/export/analytics', { responseType: 'blob' })
+    const blob = new Blob([res as any], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'analytics_export.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch {
+    // handled by interceptor
+  } finally {
+    exporting.value = false
+  }
+}
 
 const kpi = ref({
   in_stock: 0,
@@ -228,6 +252,12 @@ onMounted(async () => {
 <style scoped>
 .overview-page {
   padding-bottom: 20px;
+}
+
+.export-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
 }
 
 /* ── KPI 卡片: flex-wrap 自适应 ── */

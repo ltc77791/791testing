@@ -80,7 +80,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'logs',
         name: 'Logs',
-        component: () => import('../views/Placeholder.vue'),
+        component: () => import('../views/logs/LogViewer.vue'),
         meta: { roles: ['admin', 'manager'] },
       },
     ],
