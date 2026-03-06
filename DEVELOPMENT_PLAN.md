@@ -216,7 +216,7 @@ E:\Testing\791\
 ```javascript
 {
   _id: "auto",
-  category: "Outbound",           // UserMgmt|Inbound|Outbound|PartType|InventoryEdit
+  category: "Request",            // UserMgmt|Inbound|Request|PartType|InventoryEdit
   action_type: "审批出库",
   operator: "admin",
   details: "批准张伟申请PWR-MOD-500×2台,SN:SN001023,SN001024",
