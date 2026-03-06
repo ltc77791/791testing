@@ -13,7 +13,7 @@
       >
         <el-option label="用户管理" value="UserMgmt" />
         <el-option label="入库" value="Inbound" />
-        <el-option label="出库" value="Outbound" />
+        <el-option label="申请/审批" value="Request" />
         <el-option label="备件类型" value="PartType" />
         <el-option label="库存编辑" value="InventoryEdit" />
       </el-select>
@@ -96,7 +96,7 @@ const pagination = reactive({
 const categoryMap: Record<string, { label: string; tag: string }> = {
   UserMgmt: { label: '用户管理', tag: '' },
   Inbound: { label: '入库', tag: 'success' },
-  Outbound: { label: '出库', tag: 'warning' },
+  Request: { label: '申请/审批', tag: 'warning' },
   PartType: { label: '备件类型', tag: 'info' },
   InventoryEdit: { label: '库存编辑', tag: 'danger' },
 }
