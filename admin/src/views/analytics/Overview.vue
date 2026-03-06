@@ -151,10 +151,10 @@ onMounted(async () => {
       http.get('/analytics/distribution'),
     ])
 
-    kpi.value = kpiRes.data.data
-    safetyAlerts.value = safetyRes.data.data
+    kpi.value = kpiRes.data
+    safetyAlerts.value = safetyRes.data
 
-    const dist = distRes.data.data
+    const dist = distRes.data
 
     // 饼图 — 按备件类型
     setPieOption({
