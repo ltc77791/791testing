@@ -161,13 +161,17 @@ class CloudAggCursor {
   }
 }
 
-const _ = cloud.database().command;
-const $ = cloud.database().command.aggregate;
+// 懒加载：cloud.init() 之后才能调用 cloud.database()
+let _cmd = null;
+function _() {
+  if (!_cmd) _cmd = cloud.database().command;
+  return _cmd;
+}
 
 function _toWxFilter(filter) {
   if (!filter || Object.keys(filter).length === 0) return {};
   if (filter.$or) {
-    return _.or(filter.$or.map(sub => _toWxFilter(sub)));
+    return _().or(filter.$or.map(sub => _toWxFilter(sub)));
   }
   const wxFilter = {};
   for (const [key, val] of Object.entries(filter)) {
@@ -191,17 +195,17 @@ function _convertValue(val) {
   for (const [op, opVal] of Object.entries(val)) {
     let part;
     switch (op) {
-      case '$in':    part = _.in(opVal); break;
-      case '$nin':   part = _.nin(opVal); break;
-      case '$gt':    part = _.gt(opVal); break;
-      case '$gte':   part = _.gte(opVal); break;
-      case '$lt':    part = _.lt(opVal); break;
-      case '$lte':   part = _.lte(opVal); break;
-      case '$ne':    part = _.neq(opVal); break;
-      case '$exists': part = _.exists(opVal); break;
+      case '$in':    part = _().in(opVal); break;
+      case '$nin':   part = _().nin(opVal); break;
+      case '$gt':    part = _().gt(opVal); break;
+      case '$gte':   part = _().gte(opVal); break;
+      case '$lt':    part = _().lt(opVal); break;
+      case '$lte':   part = _().lte(opVal); break;
+      case '$ne':    part = _().neq(opVal); break;
+      case '$exists': part = _().exists(opVal); break;
       case '$regex': {
         const flags = val.$options || '';
-        part = _.regex({ regexp: opVal, options: flags });
+        part = _().regex({ regexp: opVal, options: flags });
         break;
       }
       case '$options': continue;
@@ -217,17 +221,17 @@ function _toWxUpdate(update) {
   if (update.$set) Object.assign(data, update.$set);
   if (update.$inc) {
     for (const [k, v] of Object.entries(update.$inc)) {
-      data[k] = _.inc(v);
+      data[k] = _().inc(v);
     }
   }
   if (update.$push) {
     for (const [k, v] of Object.entries(update.$push)) {
-      data[k] = v.$each ? _.push(v.$each) : _.push([v]);
+      data[k] = v.$each ? _().push(v.$each) : _().push([v]);
     }
   }
   if (update.$unset) {
     for (const k of Object.keys(update.$unset)) {
-      data[k] = _.remove();
+      data[k] = _().remove();
     }
   }
   return data;
