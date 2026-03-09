@@ -1,0 +1,58 @@
+<!--
+  扫码页 — 扫码查询 / 扫码入库
+-->
+<view class="container">
+  <!-- 模式切换 -->
+  <view class="filter-bar">
+    <view class="filter-item {{mode === 'query' ? 'active' : ''}}" bindtap="switchMode" data-mode="query">扫码查询</view>
+    <view class="filter-item {{mode === 'inbound' ? 'active' : ''}}" bindtap="switchMode" data-mode="inbound">扫码入库</view>
+  </view>
+
+  <!-- 扫码按钮 -->
+  <view class="card" style="text-align: center; margin-top: 40rpx;">
+    <view style="font-size: 120rpx; color: #1890ff; margin-bottom: 16rpx;">&#xe614;</view>
+    <button class="btn-primary" bindtap="onScan" style="width: 60%;">
+      {{loading ? '查询中...' : '点击扫码'}}
+    </button>
+    <view style="font-size: 24rpx; color: #999; margin-top: 16rpx;">
+      支持条形码和二维码
+    </view>
+  </view>
+
+  <!-- 查询结果 -->
+  <block wx:if="{{scanResult}}">
+    <view class="card">
+      <view class="card-title">{{scanResult.part_name}}</view>
+      <view class="list-item" style="padding: 8rpx 0;">
+        <text style="color: #999;">备件编号</text>
+        <text>{{scanResult.part_no}}</text>
+      </view>
+      <view class="list-item" style="padding: 8rpx 0;">
+        <text style="color: #999;">序列号</text>
+        <text>{{scanResult.serial_number}}</text>
+      </view>
+      <view class="list-item" style="padding: 8rpx 0;">
+        <text style="color: #999;">状态</text>
+        <view class="tag {{scanResult.status === 0 ? 'tag-in-stock' : 'tag-out-stock'}}">
+          {{scanResult.statusText}}
+        </view>
+      </view>
+      <view class="list-item" style="padding: 8rpx 0;">
+        <text style="color: #999;">成色</text>
+        <text>{{scanResult.condition}}</text>
+      </view>
+      <view class="list-item" style="padding: 8rpx 0;">
+        <text style="color: #999;">子公司 / 仓库</text>
+        <text>{{scanResult.subsidiary}} - {{scanResult.warehouse}}</text>
+      </view>
+      <view class="list-item" style="padding: 8rpx 0;">
+        <text style="color: #999;">入库时间</text>
+        <text>{{scanResult.inboundTimeText}}</text>
+      </view>
+      <view class="list-item" style="padding: 8rpx 0;">
+        <text style="color: #999;">入库操作人</text>
+        <text>{{scanResult.inbound_operator}}</text>
+      </view>
+    </view>
+  </block>
+</view>

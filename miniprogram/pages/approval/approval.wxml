@@ -1,0 +1,78 @@
+<!--
+  审批页 — 待审批列表 + 审批/驳回
+-->
+<view>
+  <!-- 状态筛选 -->
+  <view class="filter-bar">
+    <view class="filter-item {{statusFilter === 'pending' ? 'active' : ''}}" bindtap="onStatusFilter" data-status="pending">待审批</view>
+    <view class="filter-item {{statusFilter === 'approved' ? 'active' : ''}}" bindtap="onStatusFilter" data-status="approved">已通过</view>
+    <view class="filter-item {{statusFilter === 'rejected' ? 'active' : ''}}" bindtap="onStatusFilter" data-status="rejected">已驳回</view>
+    <view class="filter-item {{statusFilter === '' ? 'active' : ''}}" bindtap="onStatusFilter" data-status="">全部</view>
+  </view>
+
+  <!-- 列表 -->
+  <view wx:for="{{items}}" wx:key="_id" class="card" bindtap="onTapRequest" data-id="{{item._id}}">
+    <view style="display: flex; justify-content: space-between; align-items: center;">
+      <view>
+        <text style="font-weight: 600;">{{item.applicant}}</text>
+        <view class="tag tag-{{item.status}}" style="margin-left: 12rpx;">{{item.statusLabel}}</view>
+      </view>
+      <text style="font-size: 24rpx; color: #999;">{{item.createdAtText}}</text>
+    </view>
+    <view style="margin-top: 12rpx;">
+      <view wx:for="{{item.items}}" wx:for-item="sub" wx:key="part_no" style="font-size: 26rpx; color: #666;">
+        {{sub.part_name}} x {{sub.quantity}}
+      </view>
+    </view>
+    <view style="font-size: 24rpx; color: #999; margin-top: 8rpx;">项目: {{item.project_location}}</view>
+  </view>
+
+  <view wx:if="{{!loading && items.length === 0}}" class="empty">
+    <view class="empty-text">暂无{{statusFilter === 'pending' ? '待审批' : ''}}申请</view>
+  </view>
+  <view wx:if="{{loading}}" class="loading">加载中...</view>
+
+  <!-- 审批弹窗 -->
+  <view wx:if="{{showApprovalDialog}}" class="dialog-mask" bindtap="closeDialog">
+    <view class="dialog-content" catchtap="">
+      <view class="card-title">审批详情</view>
+
+      <view style="margin-bottom: 16rpx;">
+        <text style="color: #999;">申请人: </text>
+        <text>{{currentRequest.applicant}}</text>
+      </view>
+      <view style="margin-bottom: 16rpx;">
+        <text style="color: #999;">项目: </text>
+        <text>{{currentRequest.project_location}}</text>
+      </view>
+
+      <view style="margin-bottom: 16rpx;">
+        <text style="color: #999;">申请明细:</text>
+        <view wx:for="{{currentRequest.items}}" wx:for-item="sub" wx:key="part_no" style="padding: 4rpx 0; font-size: 26rpx;">
+          {{sub.part_name}} ({{sub.part_no}}) x {{sub.quantity}}
+        </view>
+      </view>
+
+      <block wx:if="{{currentRequest.status === 'pending'}}">
+        <!-- 驳回原因 -->
+        <view class="form-group">
+          <view class="form-label">驳回原因（驳回时填写）</view>
+          <textarea class="form-input" style="height: 100rpx; padding-top: 12rpx;" placeholder="请填写驳回原因" value="{{rejectReason}}" bindinput="onRejectReasonInput" />
+        </view>
+
+        <view style="display: flex; gap: 16rpx;">
+          <button style="flex: 1;" class="btn-primary" bindtap="onApprove">批准</button>
+          <button style="flex: 1;" class="btn-danger" bindtap="onReject" style="flex: 1; background: #ff4d4f; color: #fff; border-radius: 8rpx;">驳回</button>
+        </view>
+      </block>
+
+      <block wx:if="{{currentRequest.status === 'rejected'}}">
+        <view style="color: #f5222d; margin-top: 12rpx;">
+          驳回原因: {{currentRequest.reject_reason}}
+        </view>
+      </block>
+
+      <button class="btn-default" style="margin-top: 16rpx;" bindtap="closeDialog">关闭</button>
+    </view>
+  </view>
+</view>

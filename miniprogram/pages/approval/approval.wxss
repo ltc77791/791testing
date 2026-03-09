@@ -1,0 +1,23 @@
+/* 审批页样式 */
+
+.dialog-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.dialog-content {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 32rpx;
+  width: 85%;
+  max-height: 80vh;
+  overflow-y: auto;
+}

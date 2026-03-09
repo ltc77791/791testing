@@ -1,0 +1,11 @@
+{
+  "name": "partTypes",
+  "version": "1.0.0",
+  "description": "备件类型管理云函数",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.7.4",
+    "bcryptjs": "^2.4.3",
+    "joi": "^17.0.0"
+  }
+}
