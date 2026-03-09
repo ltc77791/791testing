@@ -8,8 +8,8 @@
  *   GET /scan/:sn      — 扫码查询
  *   POST /batch-import — 批量入库
  */
-const { handleRequest } = require('../_shared/cloud-handler');
-const handlers = require('../../server/src/handlers/inventory');
+const { handleRequest } = require('./cloud-handler');
+const handlers = require('./handlers');
 
 exports.main = async (event, context) => {
   return handleRequest(event, context, {

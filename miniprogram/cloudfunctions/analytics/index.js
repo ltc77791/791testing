@@ -10,8 +10,8 @@
  *   GET /age            — 库龄分析
  *   GET /turnover       — 周转率
  */
-const { handleRequest } = require('../_shared/cloud-handler');
-const handlers = require('../../server/src/handlers/analytics');
+const { handleRequest } = require('./cloud-handler');
+const handlers = require('./handlers');
 
 exports.main = async (event, context) => {
   return handleRequest(event, context, {
