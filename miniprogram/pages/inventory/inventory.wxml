@@ -1,0 +1,41 @@
+<!--
+  库存列表页
+-->
+<view>
+  <!-- 搜索栏 -->
+  <view class="search-bar">
+    <input class="search-input" placeholder="搜索序列号/备件编号/名称" bindinput="onSearchInput" />
+  </view>
+
+  <!-- 状态筛选 -->
+  <view class="filter-bar">
+    <view class="filter-item {{statusFilter === '' ? 'active' : ''}}" bindtap="onStatusFilter" data-status="">全部</view>
+    <view class="filter-item {{statusFilter === '0' ? 'active' : ''}}" bindtap="onStatusFilter" data-status="0">在库</view>
+    <view class="filter-item {{statusFilter === '1' ? 'active' : ''}}" bindtap="onStatusFilter" data-status="1">已出库</view>
+  </view>
+
+  <!-- 总数 -->
+  <view style="padding: 16rpx 24rpx; font-size: 24rpx; color: #999;">
+    共 {{total}} 条记录
+  </view>
+
+  <!-- 列表 -->
+  <view wx:for="{{items}}" wx:key="_id" class="list-item" style="flex-direction: column; align-items: flex-start;">
+    <view style="display: flex; width: 100%; justify-content: space-between; align-items: center;">
+      <view class="list-item-title">{{item.part_name}}</view>
+      <view class="tag {{item.status === 0 ? 'tag-in-stock' : 'tag-out-stock'}}">{{item.statusText}}</view>
+    </view>
+    <view class="list-item-desc">SN: {{item.serial_number}}</view>
+    <view class="list-item-desc">{{item.subsidiary}} - {{item.warehouse}} | {{item.condition}}</view>
+    <view class="list-item-desc">入库: {{item.inboundTimeText}}</view>
+  </view>
+
+  <!-- 空状态 -->
+  <view wx:if="{{!loading && items.length === 0}}" class="empty">
+    <view class="empty-text">暂无库存记录</view>
+  </view>
+
+  <!-- 加载更多 -->
+  <view wx:if="{{loading}}" class="loading">加载中...</view>
+  <view wx:if="{{!hasMore && items.length > 0}}" class="loading">已加载全部</view>
+</view>

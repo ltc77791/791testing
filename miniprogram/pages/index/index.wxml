@@ -1,0 +1,85 @@
+<!--
+  首页 — 未绑定时显示登录表单，已绑定时显示 KPI 概览
+-->
+<view class="container">
+  <!-- 未登录：绑定表单 -->
+  <block wx:if="{{!isLoggedIn}}">
+    <view class="card" style="margin-top: 100rpx;">
+      <view class="card-title" style="text-align: center; font-size: 36rpx;">备件管理系统</view>
+      <view style="text-align: center; color: #999; margin-bottom: 40rpx; font-size: 26rpx;">请绑定系统账号以继续</view>
+
+      <view class="form-group">
+        <view class="form-label">用户名</view>
+        <input class="form-input" placeholder="请输入用户名" value="{{username}}" bindinput="onUsernameInput" />
+      </view>
+
+      <view class="form-group">
+        <view class="form-label">密码</view>
+        <input class="form-input" type="password" placeholder="请输入密码" value="{{password}}" bindinput="onPasswordInput" />
+      </view>
+
+      <button class="btn-primary" bindtap="onBind" disabled="{{binding}}" style="margin-top: 40rpx;">
+        {{binding ? '绑定中...' : '绑定账号'}}
+      </button>
+    </view>
+  </block>
+
+  <!-- 已登录：KPI 概览 -->
+  <block wx:else>
+    <!-- 用户信息 -->
+    <view class="card" style="display: flex; align-items: center; justify-content: space-between;">
+      <view>
+        <view style="font-size: 32rpx; font-weight: 600;">{{user.username}}</view>
+        <view style="font-size: 24rpx; color: #999; margin-top: 4rpx;">
+          角色: {{user.roles[0] === 'admin' ? '管理员' : user.roles[0] === 'manager' ? '仓库管理员' : '操作员'}}
+        </view>
+      </view>
+    </view>
+
+    <!-- 加载中 -->
+    <view wx:if="{{loading}}" class="loading">加载中...</view>
+
+    <!-- KPI 卡片 -->
+    <block wx:if="{{kpi && !loading}}">
+      <view style="display: flex; flex-wrap: wrap; gap: 16rpx;">
+        <view class="card" style="flex: 1; min-width: 45%;">
+          <view style="font-size: 24rpx; color: #999;">在库总数</view>
+          <view style="font-size: 48rpx; font-weight: 700; color: #1890ff;">{{kpi.in_stock}}</view>
+        </view>
+        <view class="card" style="flex: 1; min-width: 45%;">
+          <view style="font-size: 24rpx; color: #999;">累计出库</view>
+          <view style="font-size: 48rpx; font-weight: 700; color: #52c41a;">{{kpi.out_of_stock}}</view>
+        </view>
+        <view class="card" style="flex: 1; min-width: 45%;">
+          <view style="font-size: 24rpx; color: #999;">待审批</view>
+          <view style="font-size: 48rpx; font-weight: 700; color: {{kpi.pending_requests > 0 ? '#f5222d' : '#333'}};">
+            {{kpi.pending_requests}}
+          </view>
+        </view>
+        <view class="card" style="flex: 1; min-width: 45%;">
+          <view style="font-size: 24rpx; color: #999;">本月入/出库</view>
+          <view style="font-size: 36rpx; font-weight: 600;">
+            <text style="color: #1890ff;">{{kpi.month_inbound}}</text>
+            <text style="color: #999;"> / </text>
+            <text style="color: #fa8c16;">{{kpi.month_outbound}}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 安全库存预警 -->
+      <view wx:if="{{safetyAlerts.length > 0}}" class="card">
+        <view class="card-title" style="color: #f5222d;">安全库存预警 ({{safetyAlerts.length}})</view>
+        <view wx:for="{{safetyAlerts}}" wx:key="part_no" class="list-item" style="border-bottom: 2rpx solid #f0f0f0;">
+          <view class="list-item-content">
+            <view class="list-item-title">{{item.part_name}}</view>
+            <view class="list-item-desc">{{item.part_no}}</view>
+          </view>
+          <view style="text-align: right;">
+            <view style="font-size: 24rpx; color: #999;">库存 / 安全值</view>
+            <view style="color: #f5222d; font-weight: 600;">{{item.actual_stock}} / {{item.min_stock}}</view>
+          </view>
+        </view>
+      </view>
+    </block>
+  </block>
+</view>

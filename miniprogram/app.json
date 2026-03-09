@@ -1,0 +1,57 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/scan/scan",
+    "pages/inventory/inventory",
+    "pages/request/request",
+    "pages/approval/approval"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#1890ff",
+    "navigationBarTitleText": "备件管理",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#f5f5f5",
+    "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "color": "#999",
+    "selectedColor": "#1890ff",
+    "backgroundColor": "#fff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页",
+        "iconPath": "images/tab-home.png",
+        "selectedIconPath": "images/tab-home-active.png"
+      },
+      {
+        "pagePath": "pages/scan/scan",
+        "text": "扫码",
+        "iconPath": "images/tab-scan.png",
+        "selectedIconPath": "images/tab-scan-active.png"
+      },
+      {
+        "pagePath": "pages/inventory/inventory",
+        "text": "库存",
+        "iconPath": "images/tab-inventory.png",
+        "selectedIconPath": "images/tab-inventory-active.png"
+      },
+      {
+        "pagePath": "pages/request/request",
+        "text": "申请",
+        "iconPath": "images/tab-request.png",
+        "selectedIconPath": "images/tab-request-active.png"
+      },
+      {
+        "pagePath": "pages/approval/approval",
+        "text": "审批",
+        "iconPath": "images/tab-approval.png",
+        "selectedIconPath": "images/tab-approval-active.png"
+      }
+    ]
+  },
+  "sitemapLocation": "sitemap.json",
+  "cloud": true,
+  "style": "v2"
+}
