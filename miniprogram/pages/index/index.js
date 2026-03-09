@@ -24,8 +24,14 @@ Page({
     }
   },
 
-  onShow() {
+  async onShow() {
     const app = getApp();
+
+    // 等待静默登录完成，避免竞态条件
+    if (app.loginReady) {
+      await app.loginReady;
+    }
+
     if (app.globalData.isLoggedIn) {
       this.setData({
         isLoggedIn: true,
