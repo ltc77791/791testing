@@ -12,6 +12,7 @@ App({
     // 初始化云开发环境
     if (wx.cloud) {
       wx.cloud.init({
+        env: 'ophkspareparts-3g71vrjmdc6fa0a0',
         traceUser: true,
       });
     } else {
