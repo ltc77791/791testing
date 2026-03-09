@@ -13,13 +13,21 @@
 const fs = require('fs');
 const path = require('path');
 
-const inputFile = process.argv[2];
-if (!inputFile) {
-  console.error('用法: node scripts/mongo2wx.js <input.json> [output.jsonl]');
+const inputArg = process.argv[2];
+if (!inputArg) {
+  console.error('用法: node mongo2wx.js <input.json> [output.jsonl]');
   process.exit(1);
 }
 
-const outputFile = process.argv[3] || inputFile.replace(/\.json$/i, '.jsonl');
+const inputFile = path.resolve(inputArg);
+if (!fs.existsSync(inputFile)) {
+  console.error(`错误: 找不到文件 "${inputArg}"`);
+  console.error(`完整路径: ${inputFile}`);
+  process.exit(1);
+}
+
+const outputArg = process.argv[3] || inputArg.replace(/\.json$/i, '.jsonl');
+const outputFile = path.resolve(outputArg);
 
 /**
  * 递归转换 MongoDB 扩展 JSON 类型为普通值
