@@ -4,8 +4,8 @@
  * 支持的 action:
  *   GET /  — 日志分页查询
  */
-const { handleRequest } = require('../_shared/cloud-handler');
-const handlers = require('../../server/src/handlers/logs');
+const { handleRequest } = require('./cloud-handler');
+const handlers = require('./handlers');
 
 exports.main = async (event, context) => {
   return handleRequest(event, context, {

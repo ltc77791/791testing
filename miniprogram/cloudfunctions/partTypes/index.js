@@ -7,8 +7,8 @@
  *   PATCH /:part_no    — 编辑备件类型
  *   DELETE /:part_no   — 删除备件类型
  */
-const { handleRequest } = require('../_shared/cloud-handler');
-const handlers = require('../../server/src/handlers/partTypes');
+const { handleRequest } = require('./cloud-handler');
+const handlers = require('./handlers');
 
 exports.main = async (event, context) => {
   return handleRequest(event, context, {

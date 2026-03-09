@@ -9,8 +9,8 @@
  *   POST /:id/reject   — 驳回
  *   POST /:id/cancel   — 撤回
  */
-const { handleRequest } = require('../_shared/cloud-handler');
-const handlers = require('../../server/src/handlers/requests');
+const { handleRequest } = require('./cloud-handler');
+const handlers = require('./handlers');
 
 exports.main = async (event, context) => {
   return handleRequest(event, context, {
