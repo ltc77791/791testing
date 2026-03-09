@@ -8,6 +8,9 @@ App({
     isLoggedIn: false,
   },
 
+  /** silentLogin 的 Promise，供页面 await */
+  loginReady: null,
+
   onLaunch() {
     // 初始化云开发环境
     if (wx.cloud) {
@@ -19,8 +22,8 @@ App({
       console.error('请使用 2.2.3 以上基础库以使用云能力');
     }
 
-    // 尝试静默登录
-    this.silentLogin();
+    // 尝试静默登录，保存 Promise 供页面等待
+    this.loginReady = this.silentLogin();
   },
 
   /**
