@@ -4,7 +4,7 @@
   "description": "微信登录 + 账号绑定云函数",
   "main": "index.js",
   "dependencies": {
-    "wx-server-sdk": "~2.7.4",
+    "wx-server-sdk": "latest",
     "bcryptjs": "^2.4.3"
   }
 }
