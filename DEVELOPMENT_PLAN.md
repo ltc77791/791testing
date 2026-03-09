@@ -621,17 +621,56 @@ GET /api/analytics/turnover?months=6
 - **后端机制**: 移除了原来粗放的返回 token 给前端，引入了 `cookie-parser`。登录成功后返回 Set-Cookie，登出提供单独的 `/api/auth/logout` 销毁 Cookie。使用 `express-rate-limit` 中间件，通过 `NODE_ENV` 动态判断本地环境并启用特性放行。
 - **前端适配**: 全面移除了 `stores/auth.ts` 中手动的 `localStorage` Token 获取，并在 `http.ts` Axios 实例中启用了 `withCredentials: true` 保证 Cookie 正确发送。修复了因重构及纯异步请求带来的路由器竞态拦截报错。
 
-### 阶段 6（后续）：微信小程序
+### 阶段 6：微信小程序 — 云函数 + 页面开发
 
 > 目标: 将后端迁移到云函数，开发移动端操作界面
 
-| 步骤 | 任务 | 备注 |
-|:----:|------|------|
-| 6-1 | 云函数壳封装 | 将 handlers/ 套入云函数入口 |
-| 6-2 | 微信登录替代 JWT | openid 绑定用户 |
-| 6-3 | 小程序首页 + 扫码入库 | wx.scanCode 替代 OpenCV |
-| 6-4 | 库存查询 + 申请出库 | 移动端表单 |
-| 6-5 | 审批 + 消息通知 | 订阅消息推送 |
+| 步骤 | 任务 | 备注 | 状态 |
+|:----:|------|------|:----:|
+| 6-1 | 云函数壳封装 + db-adapter 双模适配 | 将 handlers/ 套入云函数入口，cloud-handler 路由分发 | ✅ 完成 |
+| 6-2 | 微信登录替代 JWT | openid 绑定用户 | ✅ 完成 |
+| 6-3 | 小程序首页 + 扫码入库 | wx.scanCode + KPI 仪表盘 | ✅ 完成 |
+| 6-4 | 库存查询 + 申请出库 + 审批 | 移动端表单 + 审批弹窗 | ✅ 完成 |
+
+#### 步骤 6-1 完成内容
+- **cloud-handler.js**: 通用路由分发器，将微信云函数 event 转换为 Express 风格 req/res，支持路径参数 (`:id`, `:sn`)、精确匹配、RBAC 权限检查
+- **db-adapter.js**: 数据库双模适配层，通过 `DB_MODE` 环境变量切换 MongoDB 原生驱动（本地）和微信云数据库 API（云端），统一 `find/findOne/insertOne/updateOne/deleteOne/aggregate` 接口
+- **6 个云函数模块**: auth(3接口)、inventory(5接口)、partTypes(4接口)、requests(6接口)、analytics(7接口)、logs(1接口)
+- **数据迁移工具**: `scripts/mongo2wx.js`，MongoDB 导出 JSON → 微信云 JSONL 转换（处理 $oid/$date/$numberInt 等扩展类型）
+- **验证项** (全部通过):
+  1. 目录结构与 `_shared/` 共享模块 ✅
+  2. `db-adapter.js` 双模切换 (`DB_MODE=cloud` / `DB_MODE=local`) ✅
+  3. cloud-handler.js 路由匹配（精确匹配 + 参数化路由 + URL 解码） ✅
+  4. 6 个云函数 index.js 路由表完整性 ✅
+  5. auth 云函数认证流程（wx-login/bind/unbind） ✅
+  6. handlers.js 业务逻辑正确引用 db-adapter ✅
+  7. `require()` 路径与部署目录一致 ✅
+  8. 路由匹配纯函数测试（9 用例全通过） ✅
+
+#### 步骤 6-2 完成内容
+- **auth 云函数**: 3 个接口
+  - `POST /wx-login` — 静默登录，通过 openId 查找已绑定用户，自动更新 last_login
+  - `POST /bind` — 用户名+密码绑定微信号，bcrypt 验证，记录 sys_logs
+  - `POST /unbind` — 解绑微信号（admin 可解绑他人，普通用户仅解绑自己）
+- **app.js 全局逻辑**: 启动时 `wx.cloud.init()` → `silentLogin()` → 缓存用户信息到 globalData
+- **登录态管理**: `loginReady` Promise 供各页面 await，`checkLogin()` 未绑定时跳转首页
+
+#### 步骤 6-3 完成内容
+- **首页 (index)**:
+  - 未绑定用户: 显示用户名+密码绑定表单
+  - 已绑定用户: KPI 仪表盘（在库/出库/待审批/本月入出库）+ 安全库存预警列表
+  - 数据来源: analytics 云函数 (`kpi` + `safety-stock`)
+- **扫码页 (scan)**:
+  - 双模式切换: 扫码查询 / 扫码入库
+  - `wx.scanCode()` 获取条码 → inventory 云函数 `GET /scan/:sn`
+  - 查询模式: 显示备件详情（名称/SN/状态/仓库/入库时间等）
+  - 入库模式: 扫码后跳转入库表单
+
+#### 步骤 6-4 完成内容
+- **库存页 (inventory)**: 搜索栏+状态筛选+分页列表，下拉刷新+上拉加载，搜索防抖
+- **申请页 (request)**: 双 tab（我的申请列表 + 提交申请表单），动态添加备件明细行，项目地点必填
+- **审批页 (approval)**: 待审批/已审批/已驳回筛选，弹窗审批（通过/驳回+原因），admin/manager 权限控制
+- **公共工具**: `utils/api.js` 统一云函数调用层（含 loading/静默两种模式），`utils/util.js` 格式化工具
 
 ## 六、API 全表
 
