@@ -170,15 +170,27 @@ function _() {
 
 function _toWxFilter(filter) {
   if (!filter || Object.keys(filter).length === 0) return {};
-  if (filter.$or) {
+
+  const normalKeys = Object.keys(filter).filter(k => k !== '$or');
+
+  if (!filter.$or) {
+    const wxFilter = {};
+    for (const key of normalKeys) {
+      wxFilter[key] = _convertValue(filter[key]);
+    }
+    return wxFilter;
+  }
+
+  if (normalKeys.length === 0) {
     return _().or(filter.$or.map(sub => _toWxFilter(sub)));
   }
-  const wxFilter = {};
-  for (const [key, val] of Object.entries(filter)) {
-    if (key === '$or') continue;
-    wxFilter[key] = _convertValue(val);
+
+  // $or + other fields: combine with and
+  const normalFilter = {};
+  for (const key of normalKeys) {
+    normalFilter[key] = _convertValue(filter[key]);
   }
-  return wxFilter;
+  return _().and([normalFilter, _().or(filter.$or.map(sub => _toWxFilter(sub)))]);
 }
 
 function _convertValue(val) {
