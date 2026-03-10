@@ -27,11 +27,14 @@ Page({
   // 扫码
   async onScan() {
     try {
-      const { result } = await wx.scanCode({ scanType: ['barCode', 'qrCode'] });
-      if (!result) return;
+      const scanRes = await wx.scanCode({ scanType: ['barCode', 'qrCode'] });
+      console.log('[scan] scanCode result:', scanRes.result, 'charSet:', scanRes.charSet, 'scanType:', scanRes.scanType);
+      const sn = (scanRes.result || '').trim();
+      if (!sn) return;
 
       this.setData({ loading: true });
-      const res = await api.inventory.scan(result);
+      console.log('[scan] querying SN:', sn);
+      const res = await api.inventory.scan(sn);
       this.setData({ loading: false });
 
       if (res.code === 0) {
