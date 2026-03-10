@@ -19,6 +19,15 @@
     </view>
   </view>
 
+  <!-- 手动输入序列号 -->
+  <view class="card" style="margin-top: 20rpx;">
+    <view style="font-size: 28rpx; color: #666; margin-bottom: 16rpx;">手动输入序列号</view>
+    <view style="display: flex; gap: 16rpx;">
+      <input class="input" placeholder="输入序列号查询" value="{{manualSN}}" bindinput="onManualInput" bindconfirm="onManualQuery" style="flex: 1; border: 1rpx solid #ddd; border-radius: 8rpx; padding: 12rpx 16rpx; font-size: 28rpx;" />
+      <button class="btn-primary" bindtap="onManualQuery" style="width: 140rpx; font-size: 28rpx;">查询</button>
+    </view>
+  </view>
+
   <!-- 查询结果 -->
   <block wx:if="{{scanResult}}">
     <view class="card">
