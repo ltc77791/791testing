@@ -1,5 +1,5 @@
 /**
- * 审批页 — 待审批列表 + 审批/驳回操作
+ * 审批页 — 待审批列表 + 审批/驳回操作（含部分批准）
  * 阶段 6-5 将完善此页面（含订阅消息推送）
  */
 const api = require('../../utils/api');
@@ -17,6 +17,9 @@ Page({
     showApprovalDialog: false,
     currentRequest: null,
     rejectReason: '',
+    // 部分批准
+    approveMode: 'full', // 'full' | 'partial'
+    approveItems: [],     // 每项的 SN 选择状态
   },
 
   onShow() {
@@ -69,22 +72,100 @@ Page({
   onTapRequest(e) {
     const id = e.currentTarget.dataset.id;
     const item = this.data.items.find(i => i._id === id);
-    this.setData({ showApprovalDialog: true, currentRequest: item, rejectReason: '' });
+
+    // 构建审批项（含 SN 选择状态）
+    const approveItems = (item.items || []).map(sub => ({
+      part_no: sub.part_no,
+      part_name: sub.part_name,
+      quantity: sub.quantity,
+      serial_numbers: sub.serial_numbers || [],
+      // 默认全选
+      selected_sns: [...(sub.serial_numbers || [])],
+    }));
+
+    this.setData({
+      showApprovalDialog: true,
+      currentRequest: item,
+      rejectReason: '',
+      approveMode: 'full',
+      approveItems,
+    });
   },
 
   closeDialog() {
     this.setData({ showApprovalDialog: false, currentRequest: null });
   },
 
+  // 切换审批模式
+  onApproveModeChange(e) {
+    const mode = e.currentTarget.dataset.mode;
+    this.setData({ approveMode: mode });
+
+    // 切回全部批准时，重置所有选择为全选
+    if (mode === 'full') {
+      const approveItems = this.data.approveItems.map(item => ({
+        ...item,
+        selected_sns: [...item.serial_numbers],
+      }));
+      this.setData({ approveItems });
+    }
+  },
+
+  // 切换单个 SN 的选中状态
+  onToggleSN(e) {
+    const { itemIdx, sn } = e.currentTarget.dataset;
+    const key = `approveItems[${itemIdx}].selected_sns`;
+    const current = this.data.approveItems[itemIdx].selected_sns;
+
+    if (current.includes(sn)) {
+      this.setData({ [key]: current.filter(s => s !== sn) });
+    } else {
+      this.setData({ [key]: [...current, sn] });
+    }
+  },
+
+  // 全选/取消全选某个备件的所有 SN
+  onToggleAllSN(e) {
+    const idx = e.currentTarget.dataset.itemIdx;
+    const item = this.data.approveItems[idx];
+    const key = `approveItems[${idx}].selected_sns`;
+
+    if (item.selected_sns.length === item.serial_numbers.length) {
+      this.setData({ [key]: [] });
+    } else {
+      this.setData({ [key]: [...item.serial_numbers] });
+    }
+  },
+
   // 审批通过
   async onApprove() {
-    const id = this.data.currentRequest._id;
-    const { confirm } = await wx.showModal({ title: '确认审批', content: '确定要批准此申请吗？' });
+    const { approveMode, approveItems, currentRequest } = this.data;
+    const id = currentRequest._id;
+
+    let partialItems = null;
+
+    if (approveMode === 'partial') {
+      const selected = approveItems.filter(item => item.selected_sns.length > 0);
+      if (selected.length === 0) {
+        wx.showToast({ title: '请至少选择一个序列号', icon: 'none' });
+        return;
+      }
+      partialItems = selected.map(item => ({
+        part_no: item.part_no,
+        serial_numbers: item.selected_sns,
+      }));
+    }
+
+    const modeText = approveMode === 'full' ? '全部批准' : '部分批准';
+    const { confirm } = await wx.showModal({
+      title: '确认审批',
+      content: `确定要${modeText}此申请吗？`,
+    });
     if (!confirm) return;
 
-    const res = await api.requests.approve(id);
+    const res = await api.requests.approve(id, partialItems);
     if (res.code === 0) {
-      wx.showToast({ title: '已批准', icon: 'success' });
+      wx.showToast({ title: res.message || '已批准', icon: 'success' });
       this.closeDialog();
       this.loadList(true);
     } else {

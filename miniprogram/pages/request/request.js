@@ -7,6 +7,7 @@ const { formatTime, statusText } = require('../../utils/util');
 
 Page({
   data: {
+    isOperator: true,  // 是否为操作员角色
     tab: 'list',   // 'list' | 'create'
     // 列表
     items: [],
@@ -29,12 +30,23 @@ Page({
       app.checkLogin();
       return;
     }
+    // 权限检查：仅 operator 可提交申请
+    const isOperator = app.hasRole('operator') && !app.hasRole('admin', 'manager');
+    this.setData({ isOperator });
+    if (!isOperator) {
+      // admin/manager 只能查看所有申请列表，不可创建
+      this.setData({ tab: 'list' });
+    }
     this.loadList(true);
   },
 
   // Tab 切换
   switchTab(e) {
     const tab = e.currentTarget.dataset.tab;
+    if (tab === 'create' && !this.data.isOperator) {
+      wx.showToast({ title: '审批角色不可提交申请', icon: 'none' });
+      return;
+    }
     this.setData({ tab });
     if (tab === 'create' && this.data.partTypes.length === 0) {
       this.loadPartTypes();

@@ -66,6 +66,7 @@ Page({
           ...item,
           statusText: inventoryStatusText(item.status),
           inboundTimeText: formatTime(item.inbound_time),
+          outboundTimeText: item.outbound_time ? formatTime(item.outbound_time) : '',
         }));
 
         this.setData({

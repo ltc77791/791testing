@@ -5,7 +5,12 @@
   <!-- Tab 切换 -->
   <view class="filter-bar">
     <view class="filter-item {{tab === 'list' ? 'active' : ''}}" bindtap="switchTab" data-tab="list">我的申请</view>
-    <view class="filter-item {{tab === 'create' ? 'active' : ''}}" bindtap="switchTab" data-tab="create">提交申请</view>
+    <view wx:if="{{isOperator}}" class="filter-item {{tab === 'create' ? 'active' : ''}}" bindtap="switchTab" data-tab="create">提交申请</view>
+  </view>
+
+  <!-- 非操作员提示 -->
+  <view wx:if="{{!isOperator}}" style="padding: 24rpx; text-align: center; color: #999; font-size: 26rpx;">
+    审批角色不可提交申请，如需申请请使用操作员账号
   </view>
 
   <!-- 申请列表 -->
