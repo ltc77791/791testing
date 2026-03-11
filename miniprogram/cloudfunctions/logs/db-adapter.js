@@ -219,7 +219,7 @@ function _convertValue(val) {
       case '$exists': part = _().exists(opVal); break;
       case '$regex': {
         const flags = val.$options || '';
-        part = _().regex({ regexp: opVal, options: flags });
+        part = cloud.database().RegExp({ regexp: opVal, options: flags });
         break;
       }
       case '$options': continue;
