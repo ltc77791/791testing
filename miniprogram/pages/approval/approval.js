@@ -96,6 +96,9 @@ Page({
     this.setData({ showApprovalDialog: false, currentRequest: null });
   },
 
+  // 阻止事件冒泡（弹窗内容区域）
+  noop() {},
+
   // 切换审批模式
   onApproveModeChange(e) {
     const mode = e.currentTarget.dataset.mode;
