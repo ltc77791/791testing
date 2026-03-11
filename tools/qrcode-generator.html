@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>备件序列号二维码生成器</title>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "Microsoft YaHei", sans-serif; background: #f5f7fa; min-height: 100vh; padding: 20px; }
+  .container { max-width: 900px; margin: 0 auto; }
+  h1 { text-align: center; color: #303133; margin-bottom: 24px; font-size: 22px; }
+  .input-section { background: #fff; border-radius: 8px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,.08); margin-bottom: 24px; }
+  .input-section label { display: block; font-weight: 600; margin-bottom: 8px; color: #606266; }
+  .input-row { display: flex; gap: 12px; margin-bottom: 16px; }
+  .input-row input { flex: 1; padding: 10px 14px; border: 1px solid #dcdfe6; border-radius: 6px; font-size: 15px; font-family: monospace; }
+  .input-row input:focus { outline: none; border-color: #409eff; box-shadow: 0 0 0 2px rgba(64,158,255,.2); }
+  .btn { padding: 10px 24px; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; transition: .2s; }
+  .btn-primary { background: #409eff; color: #fff; }
+  .btn-primary:hover { background: #337ecc; }
+  .btn-success { background: #67c23a; color: #fff; }
+  .btn-success:hover { background: #529b2e; }
+  .btn-danger { background: #f56c6c; color: #fff; }
+  .btn-danger:hover { background: #c45656; }
+  .btn-group { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  textarea { width: 100%; height: 100px; padding: 10px 14px; border: 1px solid #dcdfe6; border-radius: 6px; font-size: 14px; font-family: monospace; resize: vertical; }
+  textarea:focus { outline: none; border-color: #409eff; }
+  .hint { color: #909399; font-size: 12px; margin-top: 6px; }
+  .results { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+  .qr-card { background: #fff; border-radius: 8px; padding: 16px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+  .qr-card img { display: block; margin: 0 auto 10px; image-rendering: pixelated; }
+  .qr-card .sn-label { font-family: monospace; font-size: 14px; font-weight: 600; color: #303133; margin-bottom: 8px; word-break: break-all; }
+  .qr-card .btn { font-size: 12px; padding: 6px 14px; }
+  .range-input { width: 150px; padding: 8px 10px; border: 1px solid #dcdfe6; border-radius: 6px; font-family: monospace; font-size: 14px; }
+  .range-input:focus { outline: none; border-color: #409eff; }
+  @media print {
+    body { background: #fff; padding: 0; }
+    .input-section, .btn-group, .qr-card .btn, h1 { display: none !important; }
+    .results { grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .qr-card { box-shadow: none; border: 1px solid #eee; padding: 10px; page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>备件序列号二维码生成器</h1>
+  <div class="input-section">
+    <label>单个生成</label>
+    <div class="input-row">
+      <input type="text" id="singleInput" placeholder="输入序列号，如 nuc2026030501" />
+      <button class="btn btn-primary" onclick="generateSingle()">生成</button>
+    </div>
+    <label>批量生成</label>
+    <textarea id="batchInput" placeholder="每行一个序列号，如：&#10;nuc2026030501&#10;nuc2026030502&#10;nuc2026030503"></textarea>
+    <div class="hint">每行一个序列号，也支持逗号或空格分隔</div>
+    <div style="margin-top: 12px;" class="btn-group">
+      <button class="btn btn-primary" onclick="generateBatch()">批量生成</button>
+      <button class="btn btn-success" onclick="generateRange()">按范围生成</button>
+      <input type="text" id="rangeStart" placeholder="起始 nuc2026030501" class="range-input" />
+      <span style="line-height:38px;color:#909399;">~</span>
+      <input type="text" id="rangeEnd" placeholder="结束 nuc2026030510" class="range-input" />
+    </div>
+    <div style="margin-top: 16px;" class="btn-group">
+      <button class="btn btn-success" onclick="printAll()">打印全部</button>
+      <button class="btn btn-danger" onclick="clearAll()">清空</button>
+    </div>
+  </div>
+  <div class="results" id="results"></div>
+</div>
+
+<script>
+function makeQRDataURL(text, cellSize) {
+  var qr = qrcode(0, 'M');
+  qr.addData(text);
+  qr.make();
+  return qr.createDataURL(cellSize, 4);
+}
+
+function addQRCard(text) {
+  var card = document.createElement('div');
+  card.className = 'qr-card';
+
+  var label = document.createElement('div');
+  label.className = 'sn-label';
+  label.textContent = text;
+  card.appendChild(label);
+
+  var img = document.createElement('img');
+  img.src = makeQRDataURL(text, 6);
+  img.alt = text;
+  img.width = 180;
+  img.height = 180;
+  card.appendChild(img);
+
+  var dlBtn = document.createElement('button');
+  dlBtn.className = 'btn btn-primary';
+  dlBtn.textContent = '下载PNG';
+  dlBtn.onclick = function() {
+    var link = document.createElement('a');
+    link.download = text + '.png';
+    link.href = makeQRDataURL(text, 12);
+    link.click();
+  };
+  card.appendChild(dlBtn);
+
+  document.getElementById('results').appendChild(card);
+}
+
+function parseSNs(text) {
+  return text.split(/[\n,\s]+/).map(function(s) { return s.trim(); }).filter(function(s) { return s.length > 0; });
+}
+
+function generateSingle() {
+  var val = document.getElementById('singleInput').value.trim();
+  if (!val) { alert('请输入序列号'); return; }
+  addQRCard(val);
+  document.getElementById('singleInput').value = '';
+}
+
+function generateBatch() {
+  var val = document.getElementById('batchInput').value;
+  var sns = parseSNs(val);
+  if (sns.length === 0) { alert('请输入至少一个序列号'); return; }
+  if (sns.length > 200) { alert('单次最多生成 200 个（当前 ' + sns.length + ' 个）'); return; }
+  sns.forEach(function(sn) { addQRCard(sn); });
+  document.getElementById('batchInput').value = '';
+}
+
+function generateRange() {
+  var start = document.getElementById('rangeStart').value.trim();
+  var end = document.getElementById('rangeEnd').value.trim();
+  if (!start || !end) { alert('请输入起始和结束序列号'); return; }
+  var matchS = start.match(/^(.*?)(\d+)$/);
+  var matchE = end.match(/^(.*?)(\d+)$/);
+  if (!matchS || !matchE) { alert('序列号末尾必须是数字，如 nuc2026030501'); return; }
+  if (matchS[1] !== matchE[1]) { alert('起始和结束的前缀不一致'); return; }
+  var prefix = matchS[1];
+  var numLen = matchS[2].length;
+  var from = parseInt(matchS[2], 10);
+  var to = parseInt(matchE[2], 10);
+  if (from > to) { alert('起始编号不能大于结束编号'); return; }
+  if (to - from + 1 > 200) { alert('范围过大，最多 200 个（当前 ' + (to - from + 1) + ' 个）'); return; }
+  for (var i = from; i <= to; i++) {
+    addQRCard(prefix + String(i).padStart(numLen, '0'));
+  }
+}
+
+function printAll() {
+  if (document.querySelectorAll('.qr-card').length === 0) { alert('还没有生成二维码'); return; }
+  window.print();
+}
+
+function clearAll() {
+  document.getElementById('results').innerHTML = '';
+}
+
+document.getElementById('singleInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') generateSingle();
+});
+</script>
+</body>
+</html>

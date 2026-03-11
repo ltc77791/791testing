@@ -170,15 +170,29 @@ function _() {
 
 function _toWxFilter(filter) {
   if (!filter || Object.keys(filter).length === 0) return {};
-  if (filter.$or) {
+
+  const normalKeys = Object.keys(filter).filter(k => k !== '$or');
+
+  if (!filter.$or) {
+    const wxFilter = {};
+    for (const key of normalKeys) {
+      wxFilter[key] = _convertValue(filter[key]);
+    }
+    return wxFilter;
+  }
+
+  // 只有 $or，无其他字段
+  if (normalKeys.length === 0) {
     return _().or(filter.$or.map(sub => _toWxFilter(sub)));
   }
-  const wxFilter = {};
-  for (const [key, val] of Object.entries(filter)) {
-    if (key === '$or') continue;
-    wxFilter[key] = _convertValue(val);
+
+  // $or + other fields: combine with and
+  // $or + 其他字段：用 and 组合
+  const normalFilter = {};
+  for (const key of normalKeys) {
+    normalFilter[key] = _convertValue(filter[key]);
   }
-  return wxFilter;
+  return _().and([normalFilter, _().or(filter.$or.map(sub => _toWxFilter(sub)))]);
 }
 
 function _convertValue(val) {
@@ -205,7 +219,7 @@ function _convertValue(val) {
       case '$exists': part = _().exists(opVal); break;
       case '$regex': {
         const flags = val.$options || '';
-        part = _().regex({ regexp: opVal, options: flags });
+        part = cloud.database().RegExp({ regexp: opVal, options: flags });
         break;
       }
       case '$options': continue;

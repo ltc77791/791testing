@@ -1,5 +1,5 @@
 <!--
-  审批页 — 待审批列表 + 审批/驳回
+  审批页 — 待审批列表 + 审批/驳回（含部分批准）
 -->
 <view>
   <!-- 状态筛选 -->
@@ -34,7 +34,7 @@
 
   <!-- 审批弹窗 -->
   <view wx:if="{{showApprovalDialog}}" class="dialog-mask" bindtap="closeDialog">
-    <view class="dialog-content" catchtap="">
+    <view class="dialog-content" catchtap="noop" style="max-height: 85vh; overflow-y: auto;">
       <view class="card-title">审批详情</view>
 
       <view style="margin-bottom: 16rpx;">
@@ -54,6 +54,58 @@
       </view>
 
       <block wx:if="{{currentRequest.status === 'pending'}}">
+        <!-- 审批模式切换 -->
+        <view style="margin-bottom: 20rpx;">
+          <view style="font-size: 28rpx; font-weight: 600; margin-bottom: 12rpx;">审批模式</view>
+          <view style="display: flex; gap: 16rpx;">
+            <view
+              class="mode-btn {{approveMode === 'full' ? 'mode-btn-active' : ''}}"
+              bindtap="onApproveModeChange"
+              data-mode="full"
+            >全部批准</view>
+            <view
+              class="mode-btn {{approveMode === 'partial' ? 'mode-btn-active' : ''}}"
+              bindtap="onApproveModeChange"
+              data-mode="partial"
+            >部分批准</view>
+          </view>
+        </view>
+
+        <!-- 部分批准：序列号选择 -->
+        <block wx:if="{{approveMode === 'partial'}}">
+          <view style="margin-bottom: 20rpx;">
+            <view wx:for="{{approveItems}}" wx:key="part_no" wx:for-index="itemIdx" style="margin-bottom: 16rpx; padding: 16rpx; background: #f9f9f9; border-radius: 8rpx;">
+              <view style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12rpx;">
+                <view style="font-size: 28rpx; font-weight: 600;">{{item.part_name}} ({{item.part_no}})</view>
+                <view style="font-size: 24rpx; color: #1890ff;" bindtap="onToggleAllSN" data-item-idx="{{itemIdx}}">
+                  {{item.selected_sns.length === item.serial_numbers.length ? '取消全选' : '全选'}}
+                </view>
+              </view>
+              <view style="font-size: 24rpx; color: #999; margin-bottom: 8rpx;">
+                已选 {{item.selected_sns.length}} / {{item.serial_numbers.length}}
+              </view>
+              <view style="display: flex; flex-wrap: wrap; gap: 8rpx;">
+                <view
+                  wx:for="{{item.serial_numbers}}"
+                  wx:for-item="sn"
+                  wx:key="*this"
+                  class="sn-chip {{item.selected_map[sn] ? 'sn-chip-selected' : ''}}"
+                  bindtap="onToggleSN"
+                  data-item-idx="{{itemIdx}}"
+                  data-sn="{{sn}}"
+                >{{sn}}</view>
+              </view>
+            </view>
+          </view>
+        </block>
+
+        <!-- 全部批准提示 -->
+        <block wx:if="{{approveMode === 'full'}}">
+          <view style="padding: 16rpx; background: #f6ffed; border: 2rpx solid #b7eb8f; border-radius: 8rpx; margin-bottom: 20rpx; font-size: 26rpx; color: #52c41a;">
+            将批准全部预留序列号
+          </view>
+        </block>
+
         <!-- 驳回原因 -->
         <view class="form-group">
           <view class="form-label">驳回原因（驳回时填写）</view>
@@ -61,8 +113,10 @@
         </view>
 
         <view style="display: flex; gap: 16rpx;">
-          <button style="flex: 1;" class="btn-primary" bindtap="onApprove">批准</button>
-          <button style="flex: 1;" class="btn-danger" bindtap="onReject" style="flex: 1; background: #ff4d4f; color: #fff; border-radius: 8rpx;">驳回</button>
+          <button style="flex: 1;" class="btn-primary" bindtap="onApprove">
+            {{approveMode === 'full' ? '全部批准' : '部分批准'}}
+          </button>
+          <button style="flex: 1; background: #ff4d4f; color: #fff; border-radius: 8rpx;" bindtap="onReject">驳回</button>
         </view>
       </block>
 

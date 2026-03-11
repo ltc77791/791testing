@@ -28,6 +28,8 @@
     <view class="list-item-desc">SN: {{item.serial_number}}</view>
     <view class="list-item-desc">{{item.subsidiary}} - {{item.warehouse}} | {{item.condition}}</view>
     <view class="list-item-desc">入库: {{item.inboundTimeText}}</view>
+    <view wx:if="{{item.status === 1 && item.outboundTimeText}}" class="list-item-desc">出库: {{item.outboundTimeText}}</view>
+    <view wx:if="{{item.status === 1 && item.receiver}}" class="list-item-desc">领用人: {{item.receiver}} | 项目: {{item.project_location || '-'}}</view>
   </view>
 
   <!-- 空状态 -->

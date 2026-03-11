@@ -8,6 +8,15 @@ const { getDB } = require('./db-adapter');
 
 async function createRequest(req, res) {
   try {
+    // 权限检查：仅 operator 可提交申请（审批者不可申请）
+    const userRoles = req.user.roles || [];
+    if (userRoles.includes('admin') || userRoles.includes('manager')) {
+      return res.status(403).json({ code: 1, message: '审批角色不可提交申请，请使用操作员账号' });
+    }
+    if (!userRoles.includes('operator')) {
+      return res.status(403).json({ code: 1, message: '无权限提交申请' });
+    }
+
     const { items, project_location, remark } = req.body;
     const db = getDB();
     const now = new Date();

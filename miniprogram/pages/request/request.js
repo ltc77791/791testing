@@ -7,6 +7,7 @@ const { formatTime, statusText } = require('../../utils/util');
 
 Page({
   data: {
+    isOperator: true,  // 是否为操作员角色
     tab: 'list',   // 'list' | 'create'
     // 列表
     items: [],
@@ -29,12 +30,23 @@ Page({
       app.checkLogin();
       return;
     }
+    // 权限检查：仅 operator 可提交申请
+    const isOperator = app.hasRole('operator') && !app.hasRole('admin', 'manager');
+    this.setData({ isOperator });
+    if (!isOperator) {
+      // admin/manager 只能查看所有申请列表，不可创建
+      this.setData({ tab: 'list' });
+    }
     this.loadList(true);
   },
 
   // Tab 切换
   switchTab(e) {
     const tab = e.currentTarget.dataset.tab;
+    if (tab === 'create' && !this.data.isOperator) {
+      wx.showToast({ title: '审批角色不可提交申请', icon: 'none' });
+      return;
+    }
     this.setData({ tab });
     if (tab === 'create' && this.data.partTypes.length === 0) {
       this.loadPartTypes();
@@ -93,7 +105,11 @@ Page({
   async loadPartTypes() {
     const res = await api.partTypes.list({ pageSize: 100 });
     if (res.code === 0) {
-      this.setData({ partTypes: res.data.items || [] });
+      const list = (res.data.items || []).map(pt => ({
+        ...pt,
+        displayName: `[${pt.part_no}] ${pt.part_name}`,
+      }));
+      this.setData({ partTypes: list });
     }
   },
 
@@ -111,13 +127,15 @@ Page({
     const pt = this.data.partTypes[ptIdx];
     const key = `formItems[${idx}].part_no`;
     const nameKey = `formItems[${idx}]._part_name`;
-    this.setData({ [key]: pt.part_no, [nameKey]: pt.part_name });
+    const labelKey = `formItems[${idx}]._part_label`;
+    this.setData({ [key]: pt.part_no, [nameKey]: pt.part_name, [labelKey]: `[${pt.part_no}] ${pt.part_name}` });
   },
 
   onQtyInput(e) {
     const idx = e.currentTarget.dataset.idx;
     const key = `formItems[${idx}].quantity`;
-    this.setData({ [key]: Number(e.detail.value) || 1 });
+    const raw = e.detail.value;
+    this.setData({ [key]: raw === '' ? '' : Number(raw) });
   },
 
   addItem() {

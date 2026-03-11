@@ -18,6 +18,40 @@
   border-radius: 16rpx;
   padding: 32rpx;
   width: 85%;
-  max-height: 80vh;
+  max-height: 85vh;
   overflow-y: auto;
+}
+
+/* 审批模式按钮 */
+.mode-btn {
+  padding: 12rpx 24rpx;
+  border: 2rpx solid #d9d9d9;
+  border-radius: 8rpx;
+  font-size: 26rpx;
+  color: #666;
+  background: #fff;
+}
+
+.mode-btn-active {
+  border-color: #1890ff;
+  color: #1890ff;
+  background: #e6f7ff;
+}
+
+/* 序列号选择芯片 */
+.sn-chip {
+  display: inline-block;
+  padding: 8rpx 16rpx;
+  border: 2rpx solid #d9d9d9;
+  border-radius: 6rpx;
+  font-size: 24rpx;
+  color: #666;
+  background: #fff;
+}
+
+.sn-chip-selected {
+  border-color: #1890ff;
+  color: #fff;
+  background: #1890ff;
+  font-weight: 600;
 }
