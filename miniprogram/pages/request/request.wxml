@@ -57,9 +57,9 @@
         <!-- 备件明细 -->
         <view class="form-label">备件明细</view>
         <view wx:for="{{formItems}}" wx:key="index" style="display: flex; align-items: center; gap: 8rpx; margin-bottom: 16rpx;">
-          <picker style="flex: 2;" mode="selector" range="{{partTypes}}" range-key="part_name" bindchange="onPartSelect" data-idx="{{index}}">
+          <picker style="flex: 2;" mode="selector" range="{{partTypes}}" range-key="displayName" bindchange="onPartSelect" data-idx="{{index}}">
             <view class="form-input" style="line-height: 80rpx;">
-              {{item._part_name || '选择备件'}}
+              {{item._part_label || '选择备件'}}
             </view>
           </picker>
           <input class="form-input" style="flex: 1;" type="number" placeholder="数量" value="{{item.quantity}}" bindinput="onQtyInput" data-idx="{{index}}" />

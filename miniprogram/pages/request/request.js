@@ -93,7 +93,11 @@ Page({
   async loadPartTypes() {
     const res = await api.partTypes.list({ pageSize: 100 });
     if (res.code === 0) {
-      this.setData({ partTypes: res.data.items || [] });
+      const list = (res.data.items || []).map(pt => ({
+        ...pt,
+        displayName: `[${pt.part_no}] ${pt.part_name}`,
+      }));
+      this.setData({ partTypes: list });
     }
   },
 
@@ -111,7 +115,8 @@ Page({
     const pt = this.data.partTypes[ptIdx];
     const key = `formItems[${idx}].part_no`;
     const nameKey = `formItems[${idx}]._part_name`;
-    this.setData({ [key]: pt.part_no, [nameKey]: pt.part_name });
+    const labelKey = `formItems[${idx}]._part_label`;
+    this.setData({ [key]: pt.part_no, [nameKey]: pt.part_name, [labelKey]: `[${pt.part_no}] ${pt.part_name}` });
   },
 
   onQtyInput(e) {
