@@ -181,11 +181,13 @@ function _toWxFilter(filter) {
     return wxFilter;
   }
 
+  // 只有 $or，无其他字段
   if (normalKeys.length === 0) {
     return _().or(filter.$or.map(sub => _toWxFilter(sub)));
   }
 
   // $or + other fields: combine with and
+  // $or + 其他字段：用 and 组合
   const normalFilter = {};
   for (const key of normalKeys) {
     normalFilter[key] = _convertValue(filter[key]);
