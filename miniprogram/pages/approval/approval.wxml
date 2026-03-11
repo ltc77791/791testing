@@ -89,7 +89,7 @@
                   wx:for="{{item.serial_numbers}}"
                   wx:for-item="sn"
                   wx:key="*this"
-                  class="sn-chip {{item.selected_sns.indexOf(sn) >= 0 ? 'sn-chip-selected' : ''}}"
+                  class="sn-chip {{item.selected_map[sn] ? 'sn-chip-selected' : ''}}"
                   bindtap="onToggleSN"
                   data-item-idx="{{itemIdx}}"
                   data-sn="{{sn}}"

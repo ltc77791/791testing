@@ -74,14 +74,19 @@ Page({
     const item = this.data.items.find(i => i._id === id);
 
     // 构建审批项（含 SN 选择状态）
-    const approveItems = (item.items || []).map(sub => ({
-      part_no: sub.part_no,
-      part_name: sub.part_name,
-      quantity: sub.quantity,
-      serial_numbers: sub.serial_numbers || [],
-      // 默认全选
-      selected_sns: [...(sub.serial_numbers || [])],
-    }));
+    const approveItems = (item.items || []).map(sub => {
+      const sns = sub.serial_numbers || [];
+      const selectedMap = {};
+      sns.forEach(sn => { selectedMap[sn] = true; });
+      return {
+        part_no: sub.part_no,
+        part_name: sub.part_name,
+        quantity: sub.quantity,
+        serial_numbers: sns,
+        selected_sns: [...sns],
+        selected_map: selectedMap,
+      };
+    });
 
     this.setData({
       showApprovalDialog: true,
@@ -106,10 +111,11 @@ Page({
 
     // 切回全部批准时，重置所有选择为全选
     if (mode === 'full') {
-      const approveItems = this.data.approveItems.map(item => ({
-        ...item,
-        selected_sns: [...item.serial_numbers],
-      }));
+      const approveItems = this.data.approveItems.map(item => {
+        const selectedMap = {};
+        item.serial_numbers.forEach(sn => { selectedMap[sn] = true; });
+        return { ...item, selected_sns: [...item.serial_numbers], selected_map: selectedMap };
+      });
       this.setData({ approveItems });
     }
   },
@@ -117,13 +123,14 @@ Page({
   // 切换单个 SN 的选中状态
   onToggleSN(e) {
     const { itemIdx, sn } = e.currentTarget.dataset;
-    const key = `approveItems[${itemIdx}].selected_sns`;
+    const snsKey = `approveItems[${itemIdx}].selected_sns`;
+    const mapKey = `approveItems[${itemIdx}].selected_map.${sn}`;
     const current = this.data.approveItems[itemIdx].selected_sns;
 
     if (current.includes(sn)) {
-      this.setData({ [key]: current.filter(s => s !== sn) });
+      this.setData({ [snsKey]: current.filter(s => s !== sn), [mapKey]: false });
     } else {
-      this.setData({ [key]: [...current, sn] });
+      this.setData({ [snsKey]: [...current, sn], [mapKey]: true });
     }
   },
 
@@ -131,12 +138,18 @@ Page({
   onToggleAllSN(e) {
     const idx = e.currentTarget.dataset.itemIdx;
     const item = this.data.approveItems[idx];
-    const key = `approveItems[${idx}].selected_sns`;
+    const snsKey = `approveItems[${idx}].selected_sns`;
+    const mapKey = `approveItems[${idx}].selected_map`;
+    const selectedMap = {};
 
     if (item.selected_sns.length === item.serial_numbers.length) {
-      this.setData({ [key]: [] });
+      // 取消全选
+      item.serial_numbers.forEach(sn => { selectedMap[sn] = false; });
+      this.setData({ [snsKey]: [], [mapKey]: selectedMap });
     } else {
-      this.setData({ [key]: [...item.serial_numbers] });
+      // 全选
+      item.serial_numbers.forEach(sn => { selectedMap[sn] = true; });
+      this.setData({ [snsKey]: [...item.serial_numbers], [mapKey]: selectedMap });
     }
   },
 

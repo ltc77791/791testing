@@ -51,6 +51,7 @@
 
 .sn-chip-selected {
   border-color: #1890ff;
-  color: #1890ff;
-  background: #e6f7ff;
+  color: #fff;
+  background: #1890ff;
+  font-weight: 600;
 }
