@@ -122,7 +122,8 @@ Page({
   onQtyInput(e) {
     const idx = e.currentTarget.dataset.idx;
     const key = `formItems[${idx}].quantity`;
-    this.setData({ [key]: Number(e.detail.value) || 1 });
+    const raw = e.detail.value;
+    this.setData({ [key]: raw === '' ? '' : Number(raw) });
   },
 
   addItem() {
