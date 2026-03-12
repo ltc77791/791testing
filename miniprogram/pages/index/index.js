@@ -27,9 +27,11 @@ Page({
   async onShow() {
     const app = getApp();
 
-    // 等待静默登录完成，避免竞态条件
-    if (app.loginReady) {
-      await app.loginReady;
+    // 等待静默登录完成（含重新验证），避免竞态条件
+    await app.silentLogin();
+
+    if (typeof this.getTabBar === 'function' && this.getTabBar()) {
+      this.getTabBar().setData({ selectedPath: 'pages/index/index' });
     }
 
     if (app.globalData.isLoggedIn) {
@@ -40,7 +42,7 @@ Page({
       });
       this.loadDashboard();
     } else {
-      this.setData({ loading: false });
+      this.setData({ isLoggedIn: false, needBind: true, loading: false });
     }
   },
 

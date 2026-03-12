@@ -8,6 +8,7 @@ const { formatTime, statusText } = require('../../utils/util');
 Page({
   data: {
     isOperator: true,  // 是否为操作员角色
+    currentUser: '',   // 当前登录用户名
     tab: 'list',   // 'list' | 'create'
     // 列表
     items: [],
@@ -24,15 +25,18 @@ Page({
     submitting: false,
   },
 
-  onShow() {
+  async onShow() {
     const app = getApp();
-    if (!app.globalData.isLoggedIn) {
-      app.checkLogin();
-      return;
+    if (!(await app.reCheckLogin())) return;
+    if (typeof this.getTabBar === 'function' && this.getTabBar()) {
+      this.getTabBar().setData({ selectedPath: 'pages/request/request' });
     }
     // 权限检查：仅 operator 可提交申请
     const isOperator = app.hasRole('operator') && !app.hasRole('admin', 'manager');
-    this.setData({ isOperator });
+    this.setData({
+      isOperator,
+      currentUser: app.globalData.user?.username || '',
+    });
     if (!isOperator) {
       // admin/manager 只能查看所有申请列表，不可创建
       this.setData({ tab: 'list' });

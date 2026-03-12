@@ -22,16 +22,16 @@ Page({
     approveItems: [],     // 每项的 SN 选择状态
   },
 
-  onShow() {
+  async onShow() {
     const app = getApp();
-    if (!app.globalData.isLoggedIn) {
-      app.checkLogin();
+    if (!(await app.reCheckLogin())) return;
+    // 仅 admin/manager 可访问，operator 应从 tabBar 隐藏此入口
+    if (!app.hasRole('admin', 'manager')) {
+      wx.switchTab({ url: '/pages/index/index' });
       return;
     }
-    // 仅 admin/manager 可访问
-    if (!app.hasRole('admin', 'manager')) {
-      wx.showToast({ title: '权限不足', icon: 'none' });
-      return;
+    if (typeof this.getTabBar === 'function' && this.getTabBar()) {
+      this.getTabBar().setData({ selectedPath: 'pages/approval/approval' });
     }
     this.loadList(true);
   },

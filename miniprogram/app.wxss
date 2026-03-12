@@ -8,6 +8,8 @@ page {
   font-size: 28rpx;
   color: #333;
   line-height: 1.5;
+  /* 为自定义 tabBar 预留底部空间 */
+  padding-bottom: calc(100rpx + env(safe-area-inset-bottom));
 }
 
 /* ── 通用容器 ── */

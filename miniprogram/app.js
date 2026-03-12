@@ -40,6 +40,10 @@ App({
       if (result.code === 0 && result.data && !result.data.needBind) {
         this.globalData.user = result.data.user;
         this.globalData.isLoggedIn = true;
+      } else {
+        // openId 已被清空或未绑定，重置登录状态
+        this.globalData.user = null;
+        this.globalData.isLoggedIn = false;
       }
     } catch (err) {
       console.error('静默登录失败:', err);
@@ -47,11 +51,24 @@ App({
   },
 
   /**
+   * 重新验证登录状态（每次页面显示时调用）
+   * 返回 true 表示已登录，false 表示未登录并已跳转
+   */
+  async reCheckLogin() {
+    await this.silentLogin();
+    if (!this.globalData.isLoggedIn) {
+      wx.reLaunch({ url: '/pages/index/index?needBind=1' });
+      return false;
+    }
+    return true;
+  },
+
+  /**
    * 检查是否已登录，未登录则跳转绑定页
    */
   checkLogin() {
     if (!this.globalData.isLoggedIn) {
-      wx.navigateTo({ url: '/pages/index/index?needBind=1' });
+      wx.reLaunch({ url: '/pages/index/index?needBind=1' });
       return false;
     }
     return true;
