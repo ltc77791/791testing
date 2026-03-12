@@ -31,7 +31,9 @@ Page({
     await app.silentLogin();
 
     if (typeof this.getTabBar === 'function' && this.getTabBar()) {
-      this.getTabBar().setData({ selectedPath: 'pages/index/index' });
+      const tabBar = this.getTabBar();
+      tabBar.setData({ selectedPath: 'pages/index/index' });
+      tabBar.updateTabs();
     }
 
     if (app.globalData.isLoggedIn) {
