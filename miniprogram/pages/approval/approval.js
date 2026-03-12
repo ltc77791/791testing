@@ -22,16 +22,16 @@ Page({
     approveItems: [],     // 每项的 SN 选择状态
   },
 
-  onShow() {
+  async onShow() {
     const app = getApp();
-    if (!app.globalData.isLoggedIn) {
-      app.checkLogin();
+    if (!(await app.reCheckLogin())) return;
+    // 仅 admin/manager 可访问，operator 应从 tabBar 隐藏此入口
+    if (!app.hasRole('admin', 'manager')) {
+      wx.switchTab({ url: '/pages/index/index' });
       return;
     }
-    // 仅 admin/manager 可访问
-    if (!app.hasRole('admin', 'manager')) {
-      wx.showToast({ title: '权限不足', icon: 'none' });
-      return;
+    if (typeof this.getTabBar === 'function' && this.getTabBar()) {
+      this.getTabBar().setData({ selectedPath: 'pages/approval/approval' });
     }
     this.loadList(true);
   },
@@ -70,6 +70,15 @@ Page({
 
   // 打开审批详情
   onTapRequest(e) {
+    // 在用户点击时请求订阅消息授权（必须在 tap 事件中调用）
+    const app = getApp();
+    const tmplIds = app.globalData.tmplIds;
+    try {
+      wx.requestSubscribeMessage({ tmplIds: [tmplIds.REQUEST_SUBMIT, tmplIds.STOCK_ALERT] });
+    } catch (err) {
+      // 用户拒绝或不支持，静默忽略
+    }
+
     const id = e.currentTarget.dataset.id;
     const item = this.data.items.find(i => i._id === id);
 

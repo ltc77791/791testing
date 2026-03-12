@@ -2,7 +2,9 @@
   "description": "备件管理系统 - 微信小程序",
   "packOptions": {
     "ignore": [],
-    "include": []
+    "include": [
+      { "type": "folder", "value": "custom-tab-bar" }
+    ]
   },
   "setting": {
     "bundle": false,
@@ -33,6 +35,8 @@
     "minifyWXSS": true,
     "showES6CompileOption": false,
     "minifyWXML": true,
+    "ignoreDevUnusedFiles": false,
+    "ignoreUploadUnusedFiles": false,
     "babelSetting": {
       "ignore": [],
       "disablePlugins": [],

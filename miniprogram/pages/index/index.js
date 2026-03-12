@@ -27,9 +27,13 @@ Page({
   async onShow() {
     const app = getApp();
 
-    // 等待静默登录完成，避免竞态条件
-    if (app.loginReady) {
-      await app.loginReady;
+    // 等待静默登录完成（含重新验证），避免竞态条件
+    await app.silentLogin();
+
+    if (typeof this.getTabBar === 'function' && this.getTabBar()) {
+      const tabBar = this.getTabBar();
+      tabBar.setData({ selectedPath: 'pages/index/index' });
+      tabBar.updateTabs();
     }
 
     if (app.globalData.isLoggedIn) {
@@ -40,7 +44,7 @@ Page({
       });
       this.loadDashboard();
     } else {
-      this.setData({ loading: false });
+      this.setData({ isLoggedIn: false, needBind: true, loading: false });
     }
   },
 
@@ -74,6 +78,11 @@ Page({
         needBind: false,
         user: res.data.user,
       });
+
+      // 绑定成功后刷新 tab bar（角色可能变化）
+      if (typeof this.getTabBar === 'function' && this.getTabBar()) {
+        this.getTabBar().updateTabs();
+      }
 
       wx.showToast({ title: '绑定成功', icon: 'success' });
       this.loadDashboard();

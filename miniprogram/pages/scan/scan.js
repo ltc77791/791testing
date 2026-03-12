@@ -13,10 +13,11 @@ Page({
     manualSN: '', // 手动输入的序列号
   },
 
-  onShow() {
+  async onShow() {
     const app = getApp();
-    if (!app.globalData.isLoggedIn) {
-      app.checkLogin();
+    if (!(await app.reCheckLogin())) return;
+    if (typeof this.getTabBar === 'function' && this.getTabBar()) {
+      this.getTabBar().setData({ selectedPath: 'pages/scan/scan' });
     }
   },
 

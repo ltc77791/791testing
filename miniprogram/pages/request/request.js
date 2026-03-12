@@ -8,6 +8,7 @@ const { formatTime, statusText } = require('../../utils/util');
 Page({
   data: {
     isOperator: true,  // 是否为操作员角色
+    currentUser: '',   // 当前登录用户名
     tab: 'list',   // 'list' | 'create'
     // 列表
     items: [],
@@ -24,15 +25,18 @@ Page({
     submitting: false,
   },
 
-  onShow() {
+  async onShow() {
     const app = getApp();
-    if (!app.globalData.isLoggedIn) {
-      app.checkLogin();
-      return;
+    if (!(await app.reCheckLogin())) return;
+    if (typeof this.getTabBar === 'function' && this.getTabBar()) {
+      this.getTabBar().setData({ selectedPath: 'pages/request/request' });
     }
     // 权限检查：仅 operator 可提交申请
     const isOperator = app.hasRole('operator') && !app.hasRole('admin', 'manager');
-    this.setData({ isOperator });
+    this.setData({
+      isOperator,
+      currentUser: app.globalData.user?.username || '',
+    });
     if (!isOperator) {
       // admin/manager 只能查看所有申请列表，不可创建
       this.setData({ tab: 'list' });
@@ -160,6 +164,15 @@ Page({
     if (items.length === 0) {
       wx.showToast({ title: '请至少添加一项备件', icon: 'none' });
       return;
+    }
+
+    // 请求订阅消息授权（审批结果通知），不阻塞提交
+    const app = getApp();
+    const tmplIds = app.globalData.tmplIds;
+    try {
+      await wx.requestSubscribeMessage({ tmplIds: [tmplIds.APPROVAL_RESULT] });
+    } catch (e) {
+      // 用户拒绝或不支持，静默忽略
     }
 
     this.setData({ submitting: true });

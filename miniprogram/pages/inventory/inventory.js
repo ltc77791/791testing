@@ -18,11 +18,11 @@ Page({
     statusFilter: '', // '' | '0' | '1'
   },
 
-  onShow() {
+  async onShow() {
     const app = getApp();
-    if (!app.globalData.isLoggedIn) {
-      app.checkLogin();
-      return;
+    if (!(await app.reCheckLogin())) return;
+    if (typeof this.getTabBar === 'function' && this.getTabBar()) {
+      this.getTabBar().setData({ selectedPath: 'pages/inventory/inventory' });
     }
     this.loadData(true);
   },

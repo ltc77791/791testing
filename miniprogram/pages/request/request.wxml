@@ -4,7 +4,7 @@
 <view>
   <!-- Tab 切换 -->
   <view class="filter-bar">
-    <view class="filter-item {{tab === 'list' ? 'active' : ''}}" bindtap="switchTab" data-tab="list">我的申请</view>
+    <view class="filter-item {{tab === 'list' ? 'active' : ''}}" bindtap="switchTab" data-tab="list">{{isOperator ? '我的申请' : '申请详情'}}</view>
     <view wx:if="{{isOperator}}" class="filter-item {{tab === 'create' ? 'active' : ''}}" bindtap="switchTab" data-tab="create">提交申请</view>
   </view>
 
@@ -35,8 +35,8 @@
       </view>
       <view style="font-size: 24rpx; color: #999; margin-top: 8rpx;">项目: {{item.project_location}}</view>
 
-      <!-- 操作按钮 -->
-      <view wx:if="{{item.status === 'pending'}}" style="margin-top: 16rpx; text-align: right;">
+      <!-- 操作按钮：仅本人提交的待审批申请可撤回 -->
+      <view wx:if="{{item.status === 'pending' && item.applicant === currentUser}}" style="margin-top: 16rpx; text-align: right;">
         <button size="mini" class="btn-danger" bindtap="onCancel" data-id="{{item._id}}" style="font-size: 24rpx;">撤回</button>
       </view>
     </view>
