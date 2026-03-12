@@ -28,14 +28,16 @@ const TEMPLATE_IDS = {
  * @returns {boolean} 是否发送成功
  */
 async function sendSubscribeMessage({ toUser, templateId, data, page, db }) {
+  console.log('[subscribe-message] 准备发送:', JSON.stringify({ toUser, templateId, data, page }));
   try {
-    await cloud.openapi.subscribeMessage.send({
+    const sendResult = await cloud.openapi.subscribeMessage.send({
       touser: toUser,
       templateId,
       data,
       page: page || '',
       miniprogramState: 'formal',
     });
+    console.log('[subscribe-message] 发送结果:', JSON.stringify(sendResult));
 
     // 记录发送成功日志
     if (db) {
@@ -87,17 +89,27 @@ async function getManagerOpenIds(db) {
     .find({ is_active: true })
     .toArray();
 
-  return users
+  console.log('[subscribe-message] 查询到用户数:', users.length,
+    '用户列表:', users.map(u => ({ username: u.username, roles: u.roles, openid: u.openid ? '有' : '无' })));
+
+  const result = users
     .filter(u => u.openid && (u.roles || []).some(r => r === 'admin' || r === 'manager'))
     .map(u => u.openid);
+
+  console.log('[subscribe-message] 符合条件的 manager/admin openId 数量:', result.length);
+  return result;
 }
 
 /**
  * 通知场景：申请提交 → 通知所有 manager/admin
  */
 async function notifyRequestSubmitted({ db, applicant, items, projectLocation }) {
+  console.log('[subscribe-message] notifyRequestSubmitted 被调用, applicant:', applicant);
   const openIds = await getManagerOpenIds(db);
-  if (openIds.length === 0) return;
+  if (openIds.length === 0) {
+    console.warn('[subscribe-message] 没有找到 manager/admin 的 openId，跳过通知');
+    return;
+  }
 
   const itemsSummary = items.map(i => `${i.part_name || i.part_no}×${i.quantity}`).join(', ');
 

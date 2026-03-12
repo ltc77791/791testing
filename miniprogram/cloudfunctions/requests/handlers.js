@@ -90,10 +90,16 @@ async function createRequest(req, res) {
       created_at: now,
     });
 
-    // 异步发送订阅消息通知 manager/admin（不阻塞响应）
-    notifyRequestSubmitted({
-      db, applicant: req.user.username, items: requestItems, projectLocation: project_location,
-    }).catch(e => console.warn('[notify] 申请提交通知失败:', e.message));
+    // 发送订阅消息通知 manager/admin（加调试日志）
+    console.log('[notify] === 开始发送申请提交通知 ===');
+    try {
+      await notifyRequestSubmitted({
+        db, applicant: req.user.username, items: requestItems, projectLocation: project_location,
+      });
+      console.log('[notify] 申请提交通知完成');
+    } catch (e) {
+      console.error('[notify] 申请提交通知失败:', e);
+    }
 
     res.status(201).json({ code: 0, message: '申请提交成功', data: { _id: requestId, ...requestDoc } });
   } catch (err) {
