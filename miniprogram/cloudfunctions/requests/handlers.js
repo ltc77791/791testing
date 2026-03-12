@@ -5,6 +5,7 @@
  */
 
 const { getDB } = require('./db-adapter');
+const { notifyRequestSubmitted, notifyApprovalResult, checkAndNotifyStockAlert } = require('./subscribe-message');
 
 async function createRequest(req, res) {
   try {
@@ -88,6 +89,11 @@ async function createRequest(req, res) {
       details: `申请出库: ${requestItems.map(i => `${i.part_no}×${i.quantity}`).join(', ')} → ${project_location}`,
       created_at: now,
     });
+
+    // 异步发送订阅消息通知 manager/admin（不阻塞响应）
+    notifyRequestSubmitted({
+      db, applicant: req.user.username, items: requestItems, projectLocation: project_location,
+    }).catch(e => console.warn('[notify] 申请提交通知失败:', e.message));
 
     res.status(201).json({ code: 0, message: '申请提交成功', data: { _id: requestId, ...requestDoc } });
   } catch (err) {
@@ -230,6 +236,14 @@ async function approveRequest(req, res) {
       created_at: now,
     });
 
+    // 异步通知申请人审批结果 + 检查库存预警
+    notifyApprovalResult({
+      db, applicantUsername: request.applicant, result: 'approved', items: request.items,
+    }).catch(e => console.warn('[notify] 审批结果通知失败:', e.message));
+
+    checkAndNotifyStockAlert(db, Object.keys(stockDecrements))
+      .catch(e => console.warn('[notify] 库存预警检查失败:', e.message));
+
     res.json({ code: 0, message: `审批通过，出库 ${outboundCount} 件` });
   } catch (err) {
     console.error('Approve request error:', err);
@@ -270,6 +284,11 @@ async function rejectRequest(req, res) {
       category: 'Request', action_type: '驳回申请', operator: req.user.username,
       details: `驳回申请 ${id}，原因: ${reason}`, created_at: now,
     });
+
+    // 异步通知申请人驳回结果
+    notifyApprovalResult({
+      db, applicantUsername: request.applicant, result: 'rejected', items: request.items, reason,
+    }).catch(e => console.warn('[notify] 驳回通知失败:', e.message));
 
     res.json({ code: 0, message: '申请已驳回' });
   } catch (err) {

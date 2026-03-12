@@ -166,6 +166,15 @@ Page({
       return;
     }
 
+    // 请求订阅消息授权（审批结果通知），不阻塞提交
+    const app = getApp();
+    const tmplIds = app.globalData.tmplIds;
+    try {
+      await wx.requestSubscribeMessage({ tmplIds: [tmplIds.APPROVAL_RESULT] });
+    } catch (e) {
+      // 用户拒绝或不支持，静默忽略
+    }
+
     this.setData({ submitting: true });
     const res = await api.requests.create({
       items: items.map(i => ({ part_no: i.part_no, quantity: i.quantity })),

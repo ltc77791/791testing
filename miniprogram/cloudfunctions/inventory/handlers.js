@@ -4,6 +4,7 @@
  */
 
 const { getDB } = require('./db-adapter');
+const { checkAndNotifyStockAlert } = require('./subscribe-message');
 
 async function listInventory(req, res) {
   try {
@@ -71,6 +72,10 @@ async function inbound(req, res) {
       details: `入库: ${part_no} SN:${serial_number}, ${subsidiary}-${warehouse}, 成色:${cond}`,
       created_at: now,
     });
+
+    // 入库后检查库存预警（part_no 的 min_stock 可能刚设置）
+    checkAndNotifyStockAlert(db, [part_no])
+      .catch(e => console.warn('[notify] 入库后库存预警检查失败:', e.message));
 
     res.status(201).json({ code: 0, message: '入库成功', data: doc });
   } catch (err) {

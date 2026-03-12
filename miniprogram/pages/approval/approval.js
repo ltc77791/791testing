@@ -34,6 +34,14 @@ Page({
       this.getTabBar().setData({ selectedPath: 'pages/approval/approval' });
     }
     this.loadList(true);
+
+    // 请求订阅消息授权（申请通知 + 库存预警），不阻塞页面
+    const tmplIds = app.globalData.tmplIds;
+    try {
+      wx.requestSubscribeMessage({ tmplIds: [tmplIds.REQUEST_SUBMIT, tmplIds.STOCK_ALERT] });
+    } catch (e) {
+      // 用户拒绝或不支持，静默忽略
+    }
   },
 
   onStatusFilter(e) {
