@@ -107,9 +107,8 @@ async function notifyRequestSubmitted({ db, applicant, items, projectLocation })
     data: {
       thing1: { value: '备件申请' },
       thing14: { value: _truncate(applicant, 20) },
-      thing4: { value: _truncate(itemsSummary, 20) },
-      // thing3 同时对应申请时间和项目地点，合并显示
-      thing3: { value: _truncate(`${_formatTime(new Date())} | ${projectLocation || '未填写'}`, 20) },
+      thing4: { value: _truncate(`${itemsSummary} → ${projectLocation || '未填写'}`, 20) },
+      time3: { value: _formatTime(new Date()) },
     },
     page: 'pages/approval/approval',
     db,
