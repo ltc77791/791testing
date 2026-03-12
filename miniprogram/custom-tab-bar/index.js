@@ -16,17 +16,27 @@ Component({
 
   lifetimes: {
     attached() {
-      this.updateTabs();
+      this.applyRoleFilter();
     },
   },
 
   pageLifetimes: {
     show() {
-      this.updateTabs();
+      this.applyRoleFilter();
     },
   },
 
   methods: {
+    /** 等待登录完成后再过滤 tab */
+    async applyRoleFilter() {
+      const app = getApp();
+      // 等待静默登录完成，确保角色信息可用
+      if (app.loginReady) {
+        await app.loginReady;
+      }
+      this.updateTabs();
+    },
+
     updateTabs() {
       const app = getApp();
       const isOperator = app.hasRole('operator') && !app.hasRole('admin', 'manager');

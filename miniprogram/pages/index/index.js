@@ -79,6 +79,11 @@ Page({
         user: res.data.user,
       });
 
+      // 绑定成功后刷新 tab bar（角色可能变化）
+      if (typeof this.getTabBar === 'function' && this.getTabBar()) {
+        this.getTabBar().updateTabs();
+      }
+
       wx.showToast({ title: '绑定成功', icon: 'success' });
       this.loadDashboard();
     } else {
