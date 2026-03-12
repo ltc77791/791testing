@@ -34,14 +34,6 @@ Page({
       this.getTabBar().setData({ selectedPath: 'pages/approval/approval' });
     }
     this.loadList(true);
-
-    // 请求订阅消息授权（申请通知 + 库存预警），不阻塞页面
-    const tmplIds = app.globalData.tmplIds;
-    try {
-      wx.requestSubscribeMessage({ tmplIds: [tmplIds.REQUEST_SUBMIT, tmplIds.STOCK_ALERT] });
-    } catch (e) {
-      // 用户拒绝或不支持，静默忽略
-    }
   },
 
   onStatusFilter(e) {
@@ -78,6 +70,15 @@ Page({
 
   // 打开审批详情
   onTapRequest(e) {
+    // 在用户点击时请求订阅消息授权（必须在 tap 事件中调用）
+    const app = getApp();
+    const tmplIds = app.globalData.tmplIds;
+    try {
+      wx.requestSubscribeMessage({ tmplIds: [tmplIds.REQUEST_SUBMIT, tmplIds.STOCK_ALERT] });
+    } catch (err) {
+      // 用户拒绝或不支持，静默忽略
+    }
+
     const id = e.currentTarget.dataset.id;
     const item = this.data.items.find(i => i._id === id);
 
