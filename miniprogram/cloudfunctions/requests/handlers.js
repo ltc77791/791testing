@@ -242,13 +242,18 @@ async function approveRequest(req, res) {
       created_at: now,
     });
 
-    // 异步通知申请人审批结果 + 检查库存预警
-    notifyApprovalResult({
-      db, applicantUsername: request.applicant, result: 'approved', items: request.items,
-    }).catch(e => console.warn('[notify] 审批结果通知失败:', e.message));
-
-    checkAndNotifyStockAlert(db, Object.keys(stockDecrements))
-      .catch(e => console.warn('[notify] 库存预警检查失败:', e.message));
+    // 通知申请人审批结果 + 检查库存预警（必须 await，否则云函数提前终止导致通知丢失）
+    try {
+      await Promise.allSettled([
+        notifyApprovalResult({
+          db, applicantUsername: request.applicant, result: 'approved', items: request.items,
+        }),
+        checkAndNotifyStockAlert(db, Object.keys(stockDecrements)),
+      ]);
+      console.log('[notify] 审批通过通知 + 库存预警检查完成');
+    } catch (e) {
+      console.warn('[notify] 审批通知/库存预警失败:', e.message);
+    }
 
     res.json({ code: 0, message: `审批通过，出库 ${outboundCount} 件` });
   } catch (err) {
@@ -291,10 +296,15 @@ async function rejectRequest(req, res) {
       details: `驳回申请 ${id}，原因: ${reason}`, created_at: now,
     });
 
-    // 异步通知申请人驳回结果
-    notifyApprovalResult({
-      db, applicantUsername: request.applicant, result: 'rejected', items: request.items, reason,
-    }).catch(e => console.warn('[notify] 驳回通知失败:', e.message));
+    // 通知申请人驳回结果（必须 await，否则云函数提前终止导致通知丢失）
+    try {
+      await notifyApprovalResult({
+        db, applicantUsername: request.applicant, result: 'rejected', items: request.items, reason,
+      });
+      console.log('[notify] 驳回通知完成');
+    } catch (e) {
+      console.warn('[notify] 驳回通知失败:', e.message);
+    }
 
     res.json({ code: 0, message: '申请已驳回' });
   } catch (err) {
