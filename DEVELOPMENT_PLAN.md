@@ -754,7 +754,7 @@ GET /api/analytics/turnover?months=6
 | 6-5-2 | 申请提交通知 | operator 提交出库申请 | 所有 manager/admin | ✅ 已完成 |
 | 6-5-3 | 审批结果通知 | manager 审批通过/驳回 | 申请人 (operator) | ✅ 已完成 |
 | 6-5-4 | 安全库存预警通知 | 入库/出库导致库存低于阈值 | 所有 manager/admin | ✅ 已完成 |
-| 6-5-5 | 联调验证 | 端到端测试 3 个通知场景 | — | ⬜ 待验证 |
+| 6-5-5 | 联调验证 | 端到端测试 3 个通知场景 | — | 🔄 排查中 |
 
 #### 步骤 6-5-1 详细设计：消息模板 + 通用发送模块
 
@@ -821,6 +821,38 @@ GET /api/analytics/turnover?months=6
    - `data`: 备件名称、当前库存、安全库存线、缺口数量
    - `page`: `pages/inventory/inventory` (点击通知跳转库存页)
 4. 防重复: 同一备件 24 小时内只发一次预警（在 `sys_logs` 中检查）
+
+#### 步骤 6-5-1~4 完成内容
+
+**通用发送模块** (`cloudfunctions/_shared/subscribe-message.js`):
+- `sendSubscribeMessage()` — 单用户发送，调用 `cloud.openapi.subscribeMessage.send()`，失败静默忽略
+- `sendToMultipleUsers()` — 批量发送（遍历多用户）
+- `getManagerOpenIds()` — 查询所有已绑定微信的 admin/manager 用户 openId
+- `notifyRequestSubmitted()` — 申请提交通知（→ 所有 manager/admin）
+- `notifyApprovalResult()` — 审批结果通知（→ 申请人）
+- `notifyStockAlert()` / `checkAndNotifyStockAlert()` — 安全库存预警通知（24h 去重）
+
+**模板 ID** (已在微信公众平台申请，配置于 `app.js` globalData.tmplIds):
+- `STOCK_ALERT`: `vopU72-_cp3VgTejH4OvJ7g99w61aP0qSQ16mnFd1vA`
+- `APPROVAL_RESULT`: `giSmlLFMc32RwQY2xCAo4CveYAAb1n4vfnjVJpH5D-s`
+- `REQUEST_SUBMIT`: `si2C9NcsJFPpJk4dOoDcUjoaRdTOw_d0p4lpstizeOQ`
+
+**云函数集成** (`cloudfunctions/requests/handlers.js`):
+- `createRequest()` 成功后 → `notifyRequestSubmitted()` (异步，不阻塞业务)
+- `approveRequest()` 成功后 → `notifyApprovalResult('approved')` + `checkAndNotifyStockAlert()`
+- `rejectRequest()` 成功后 → `notifyApprovalResult('rejected')`
+
+**小程序端授权收集**:
+- `request.js` `onSubmit()` — 提交前请求 `APPROVAL_RESULT` 模板授权（tap 事件，合法）
+- `approval.js` `onTapRequest()` — 点击审批项时请求 `REQUEST_SUBMIT` + `STOCK_ALERT` 授权（tap 事件，合法）
+
+**已修复的问题**:
+- `requestSubscribeMessage` 最初放在 `approval.js` 的 `onShow()` 中，微信要求此 API 只能在用户 tap 事件中调用，导致报错 `"can only be invoked by user TAP gesture"`。已移至 `onTapRequest()` tap 事件处理函数中。
+
+**当前排查状态 (6-5-5 联调验证)**:
+- 小程序端授权弹窗：tap gesture 错误已修复，待验证弹窗是否正常弹出
+- 云函数通知发送：代码已部署，需检查云函数日志确认 `[notify]` 调试日志是否输出
+- 待排查：需确认 requests 云函数是否已重新上传（包含通知调用代码），在云开发控制台 → 云函数 → requests → 日志中查看
 
 #### 步骤 6-5-5 联调验证
 
