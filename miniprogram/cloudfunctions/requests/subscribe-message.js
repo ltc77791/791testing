@@ -7,12 +7,12 @@ const cloud = require('wx-server-sdk');
 
 // 模板 ID 配置
 const TEMPLATE_IDS = {
-  // 库存预警通知
-  STOCK_ALERT: 'vopU72-_cp3VgTejH4OvJ7g99w61aP0qSQ16mnFd1vA',
-  // 备件申请审批结果
-  APPROVAL_RESULT: 'giSmlLFMc32RwQY2xCAo4CveYAAb1n4vfnjVJpH5D-s',
-  // 备件申请通知
-  REQUEST_SUBMIT: 'si2C9NcsJFPpJk4dOoDcUjoaRdTOw_d0p4lpstizeOQ',
+  // 库存预警通知 (预约记录提醒模板)
+  STOCK_ALERT: 'vopU72-_cp3VgTejH4OvJwvTPdmZw0U07oqnrwFPf_Q',
+  // 备件申请审批结果 (审核结果通知模板)
+  APPROVAL_RESULT: 'giSmlLFMc32RwQY2xCAo4Lnf4ZzurdzcXMMkhr-rlBQ',
+  // 备件申请通知 (请柬提醒模板)
+  REQUEST_SUBMIT: '9fsxaUqwRByLo6Ed6RQlkMOENU_FWunc9766WN1eB2E',
 };
 
 /**
@@ -118,10 +118,10 @@ async function notifyRequestSubmitted({ db, applicant, items, projectLocation })
     toUsers: openIds,
     templateId: TEMPLATE_IDS.REQUEST_SUBMIT,
     data: {
-      thing1: { value: '备件申请' },
-      thing14: { value: _truncate(applicant, 20) },
-      thing4: { value: _truncate(`${itemsSummary} → ${projectLocation || '未填写'}`, 20) },
-      time3: { value: _formatTime(new Date()) },
+      thing2: { value: _truncate(applicant, 20) },
+      thing3: { value: _truncate(itemsSummary, 20) },
+      time1: { value: _formatTime(new Date()) },
+      thing4: { value: _truncate(projectLocation || '未填写', 20) },
     },
     page: 'pages/approval/approval',
     db,
@@ -132,8 +132,10 @@ async function notifyRequestSubmitted({ db, applicant, items, projectLocation })
  * 通知场景：审批结果 → 通知申请人
  */
 async function notifyApprovalResult({ db, applicantUsername, result, items, reason }) {
+  console.log('[subscribe-message] notifyApprovalResult 被调用, applicantUsername:', applicantUsername, 'result:', result);
   // 查询申请人的 openId
   const user = await db.collection('users').findOne({ username: applicantUsername });
+  console.log('[subscribe-message] 查询申请人:', applicantUsername, 'openid:', user?.openid ? '有' : '无');
   if (!user || !user.openid) return;
 
   const itemsSummary = items.map(i => `${i.part_name || i.part_no}×${i.quantity}`).join(', ');
@@ -142,11 +144,10 @@ async function notifyApprovalResult({ db, applicantUsername, result, items, reas
     toUser: user.openid,
     templateId: TEMPLATE_IDS.APPROVAL_RESULT,
     data: {
-      thing1: { value: '审核结果' },
+      thing1: { value: _truncate(itemsSummary, 20) },
       phrase2: { value: result === 'approved' ? '已通过' : '已驳回' },
-      thing5: { value: _truncate(reason || (result === 'approved' ? '无' : '无'), 20) },
       time9: { value: _formatTime(new Date()) },
-      thing3: { value: _truncate(itemsSummary, 20) },
+      thing3: { value: _truncate(reason || '无', 20) },
     },
     page: 'pages/request/request',
     db,
@@ -158,6 +159,7 @@ async function notifyApprovalResult({ db, applicantUsername, result, items, reas
  * 同一备件 24 小时内只发一次
  */
 async function notifyStockAlert({ db, partNo, partName, currentStock, minStock }) {
+  console.log('[subscribe-message] notifyStockAlert 被调用, partNo:', partNo, 'currentStock:', currentStock, 'minStock:', minStock);
   // 防重复：检查 24 小时内是否已发送过同一备件的预警
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const recentAlert = await db.collection('sys_logs').findOne({
@@ -176,9 +178,9 @@ async function notifyStockAlert({ db, partNo, partName, currentStock, minStock }
     templateId: TEMPLATE_IDS.STOCK_ALERT,
     data: {
       thing1: { value: _truncate(`${partName || partNo}`, 20) },
-      number2: { value: currentStock },
-      number3: { value: minStock },
-      thing4: { value: `当前库存不足，缺口${minStock - currentStock}` },
+      short_thing3: { value: `${currentStock}` },
+      short_thing4: { value: `${minStock}` },
+      thing5: { value: `当前库存不足，缺口${minStock - currentStock}` },
     },
     page: 'pages/inventory/inventory',
     db,
