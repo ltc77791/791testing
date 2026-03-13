@@ -35,7 +35,8 @@ async function sendSubscribeMessage({ toUser, templateId, data, page, db }) {
       templateId,
       data,
       page: page || '',
-      miniprogramState: 'formal',
+      // 开发调试用 'developer'，体验版用 'trial'，正式版用 'formal'
+      miniprogramState: 'developer',
     });
     console.log('[subscribe-message] 发送结果:', JSON.stringify(sendResult));
 
@@ -174,10 +175,10 @@ async function notifyStockAlert({ db, partNo, partName, currentStock, minStock }
     toUsers: openIds,
     templateId: TEMPLATE_IDS.STOCK_ALERT,
     data: {
-      thing5: { value: '库存预警' },
       thing1: { value: _truncate(`${partName || partNo}`, 20) },
-      short_thing3: { value: `${currentStock}（安全线${minStock}）` },
-      time6: { value: _formatTime(new Date()) },
+      number2: { value: currentStock },
+      number3: { value: minStock },
+      thing4: { value: `当前库存不足，缺口${minStock - currentStock}` },
     },
     page: 'pages/inventory/inventory',
     db,
