@@ -132,8 +132,10 @@ async function notifyRequestSubmitted({ db, applicant, items, projectLocation })
  * 通知场景：审批结果 → 通知申请人
  */
 async function notifyApprovalResult({ db, applicantUsername, result, items, reason }) {
+  console.log('[subscribe-message] notifyApprovalResult 被调用, applicantUsername:', applicantUsername, 'result:', result);
   // 查询申请人的 openId
   const user = await db.collection('users').findOne({ username: applicantUsername });
+  console.log('[subscribe-message] 查询申请人:', applicantUsername, 'openid:', user?.openid ? '有' : '无');
   if (!user || !user.openid) return;
 
   const itemsSummary = items.map(i => `${i.part_name || i.part_no}×${i.quantity}`).join(', ');
@@ -157,6 +159,7 @@ async function notifyApprovalResult({ db, applicantUsername, result, items, reas
  * 同一备件 24 小时内只发一次
  */
 async function notifyStockAlert({ db, partNo, partName, currentStock, minStock }) {
+  console.log('[subscribe-message] notifyStockAlert 被调用, partNo:', partNo, 'currentStock:', currentStock, 'minStock:', minStock);
   // 防重复：检查 24 小时内是否已发送过同一备件的预警
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const recentAlert = await db.collection('sys_logs').findOne({
