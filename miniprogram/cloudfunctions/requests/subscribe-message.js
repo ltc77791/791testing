@@ -10,7 +10,7 @@ const TEMPLATE_IDS = {
   // 库存预警通知 (预约记录提醒模板)
   STOCK_ALERT: 'vopU72-_cp3VgTejH4OvJwvTPdmZw0U07oqnrwFPf_Q',
   // 备件申请审批结果 (审核结果通知模板)
-  APPROVAL_RESULT: 'giSmlLFMc32RwQY2xCAo4Lnf4ZzurdzcXMMkhr-rlBQ',
+  APPROVAL_RESULT: 'giSmlLFMc32RwQY2xCAo4Lnf4ZzurdzcXMMkhr-rIBQ',
   // 备件申请通知 (请柬提醒模板)
   REQUEST_SUBMIT: '9fsxaUqwRByLo6Ed6RQlkMOENU_FWunc9766WN1eB2E',
 };
