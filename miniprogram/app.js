@@ -8,9 +8,9 @@ App({
     isLoggedIn: false,
     // 订阅消息模板 ID
     tmplIds: {
-      STOCK_ALERT: 'vopU72-_cp3VgTejH4OvJ7g99w61aP0qSQ16mnFd1vA',
-      APPROVAL_RESULT: 'giSmlLFMc32RwQY2xCAo4CveYAAb1n4vfnjVJpH5D-s',
-      REQUEST_SUBMIT: 'si2C9NcsJFPpJk4dOoDcUjoaRdTOw_d0p4lpstizeOQ',
+      STOCK_ALERT: 'vopU72-_cp3VgTejH4OvJwvTPdmZw0U07oqnrwFPf_Q',
+      APPROVAL_RESULT: 'giSmlLFMc32RwQY2xCAo4Lnf4ZzurdzcXMMkhr-rlBQ',
+      REQUEST_SUBMIT: '9fsxaUqwRByLo6Ed6RQlkMOENU_FWunc9766WN1eB2E',
     },
   },
 
