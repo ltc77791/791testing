@@ -1,0 +1,23 @@
+services:
+  mongo:
+    image: mongo:7
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+
+  express:
+    build: ./server
+    ports:
+      - "5501:5501"
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/spare_parts
+      - JWT_SECRET=${JWT_SECRET:-please-change-this-in-production}
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:5173}
+      - NODE_ENV=production
+      - PORT=5501
+    depends_on:
+      - mongo
+    restart: unless-stopped
+
+volumes:
+  mongo_data:

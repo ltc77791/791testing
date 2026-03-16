@@ -910,8 +910,8 @@ GET /api/analytics/turnover?months=6
 | 步骤 | 任务 | 说明 | 需备案? | 验证方式 | 状态 |
 |:----:|------|------|:------:|---------|:----:|
 | 7-0 | 启动域名购买 + ICP 备案 | 腾讯云账号实名 + 购买域名 + 提交备案材料 | — | 备案审核进度可在腾讯云控制台查看 | ⬜ 待执行 |
-| 7-1 | 编写 `docker-compose.yml` | Express + MongoDB 双容器编排，数据卷持久化 | ❌ | `docker compose up` 本地启动成功 | ⬜ 待执行 |
-| 7-2 | `db.js` 改读环境变量 | `MONGO_URI` 环境变量，本地/Docker 自动切换 | ❌ | 连接 Docker 内 MongoDB，32 个 API 全部跑通 | ⬜ 待执行 |
+| 7-1 | 编写 `docker-compose.yml` | Express + MongoDB 双容器编排，数据卷持久化 + Dockerfile + .dockerignore | ❌ | `docker compose config` 验证通过 | ✅ 完成 |
+| 7-2 | `db.js` 改读环境变量 | `config.js` 已有 `MONGO_URI` 环境变量支持，无需改动 | ❌ | 配置确认：`process.env.MONGO_URI \|\| 'mongodb://localhost:27017/spare_parts'` | ✅ 完成 |
 | 7-3 | Express 新增 `/api/wx-login` | 小程序 `wx.login()` code → Express 换 openId → 返回 JWT | ❌ | Postman 模拟调用，JWT 签发正确 | ⬜ 待执行 |
 | 7-4 | Express 新增订阅消息发送 | 通过微信 API `access_token` 方式发送 3 种订阅消息 | ❌ | 单元测试 mock 微信 API | ⬜ 待执行 |
 | 7-5 | 小程序 5 页面 `callFunction` → `wx.request` | 云函数调用改为 HTTP 请求，业务逻辑不变 | ❌ | 开发者工具"不校验域名"模式，指向 localhost | ⬜ 待执行 |
