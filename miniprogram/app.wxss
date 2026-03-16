@@ -96,7 +96,22 @@ page {
   border-color: #1890ff;
 }
 
-/* ── 按钮 ── */
+/* ── 按钮（重置微信默认样式） ── */
+button {
+  margin: 0;
+  padding: 0;
+  line-height: inherit;
+  font-size: inherit;
+  background: transparent;
+  border: none;
+  outline: none;
+  box-sizing: border-box;
+}
+
+button::after {
+  display: none;
+}
+
 .btn-primary {
   background: #1890ff;
   color: #fff;
@@ -105,6 +120,7 @@ page {
   height: 88rpx;
   line-height: 88rpx;
   text-align: center;
+  padding: 0 24rpx;
 }
 
 .btn-primary[disabled] {
@@ -116,6 +132,10 @@ page {
   color: #fff;
   border-radius: 8rpx;
   font-size: 30rpx;
+  height: 88rpx;
+  line-height: 88rpx;
+  text-align: center;
+  padding: 0 24rpx;
 }
 
 .btn-default {
@@ -124,6 +144,34 @@ page {
   border: 2rpx solid #d9d9d9;
   border-radius: 8rpx;
   font-size: 30rpx;
+  height: 88rpx;
+  line-height: 88rpx;
+  text-align: center;
+  padding: 0 24rpx;
+}
+
+/* mini 尺寸按钮 */
+button[size="mini"] {
+  display: inline-block;
+  height: 60rpx;
+  line-height: 60rpx;
+  padding: 0 20rpx;
+  font-size: 26rpx;
+}
+
+button[size="mini"].btn-primary {
+  height: 60rpx;
+  line-height: 60rpx;
+}
+
+button[size="mini"].btn-danger {
+  height: 60rpx;
+  line-height: 60rpx;
+}
+
+button[size="mini"].btn-default {
+  height: 60rpx;
+  line-height: 60rpx;
 }
 
 /* ── 空状态 ── */
