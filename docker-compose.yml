@@ -15,6 +15,8 @@ services:
       - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:5173}
       - NODE_ENV=production
       - PORT=5501
+      - WX_APPID=${WX_APPID}
+      - WX_APP_SECRET=${WX_APP_SECRET}
     depends_on:
       - mongo
     restart: unless-stopped
