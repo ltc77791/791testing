@@ -51,7 +51,7 @@
 
       <!-- ========== Tab 2: 批量导入 ========== -->
       <el-tab-pane label="批量导入" name="batch">
-        <div style="margin-bottom: 16px">
+        <div style="margin-bottom: 16px; display: flex; align-items: center; gap: 12px">
           <el-upload
             ref="uploadRef"
             accept=".xlsx,.xls,.csv"
@@ -61,7 +61,8 @@
           >
             <el-button type="primary">选择 Excel / CSV 文件</el-button>
           </el-upload>
-          <span v-if="fileName" style="margin-left: 12px; color: #606266">{{ fileName }}</span>
+          <el-button @click="downloadTemplate">下载导入模板</el-button>
+          <span v-if="fileName" style="color: #606266">{{ fileName }}</span>
         </div>
 
         <el-alert
@@ -278,6 +279,16 @@ async function handleSingleSubmit() {
 function resetSingleForm() {
   singleFormRef.value?.resetFields()
   singleForm.condition = '全新'
+}
+
+// ======== 批量导入: 下载模板 ========
+function downloadTemplate() {
+  const headers = [['备件编号', '序列号', '子公司', '仓库', '成色']]
+  const ws = XLSX.utils.aoa_to_sheet(headers)
+  ws['!cols'] = [{ wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 10 }]
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, '批量导入模板')
+  XLSX.writeFile(wb, '批量导入模板.xlsx')
 }
 
 // ======== 批量导入: Excel 解析 ========
