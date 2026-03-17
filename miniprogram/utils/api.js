@@ -9,13 +9,10 @@
  *   const res = await api.inventory.list({ page: 1, pageSize: 20 });
  */
 
-// 后端基础地址
-// 开发者工具用 localhost；真机调试需用电脑局域网 IP，上线后替换为正式域名
-const envVersion = __wxConfig && __wxConfig.envVersion; // develop | trial | release
-const BASE_URL =
-  envVersion === 'develop'
-    ? 'http://localhost:5501'        // 开发者工具
-    : 'http://192.168.1.100:5501';   // TODO: 替换为你电脑的局域网 IP
+// 后端基础地址 — 只需维护这一处
+// 开发/真机调试: http://localhost:5501 或 http://你的局域网IP:5501
+// 上线时替换为正式域名: https://your-domain.com
+const BASE_URL = 'http://localhost:5501';
 
 /**
  * 从本地存储获取 JWT token
