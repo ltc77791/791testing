@@ -7,4 +7,7 @@ module.exports = {
   jwtExpiresIn: '24h',
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
   nodeEnv: process.env.NODE_ENV || 'development',
+  // 微信小程序配置
+  wxAppId: process.env.WX_APPID || '',
+  wxAppSecret: process.env.WX_APP_SECRET || '',
 };

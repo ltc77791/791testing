@@ -1,10 +1,13 @@
 /**
  * 备件管理系统 — 小程序入口
+ *
+ * 7-5/7-6 改造: 移除 wx.cloud 依赖，使用 wx.request + JWT 认证
  */
+const api = require('./utils/api');
+
 App({
   globalData: {
     user: null,     // { username, roles }
-    openId: null,
     isLoggedIn: false,
     // 订阅消息模板 ID
     tmplIds: {
@@ -18,36 +21,22 @@ App({
   loginReady: null,
 
   onLaunch() {
-    // 初始化云开发环境
-    if (wx.cloud) {
-      wx.cloud.init({
-        env: 'ophkspareparts-3g71vrjmdc6fa0a0',
-        traceUser: true,
-      });
-    } else {
-      console.error('请使用 2.2.3 以上基础库以使用云能力');
-    }
-
     // 尝试静默登录，保存 Promise 供页面等待
     this.loginReady = this.silentLogin();
   },
 
   /**
-   * 静默登录 — 检查 openId 是否已绑定系统账号
+   * 静默登录 — 调用 Express /api/auth/wx-login
+   * wx.login() 获取 code → 后端换 openId → 查找绑定用户 → 返回 JWT
    */
   async silentLogin() {
     try {
-      const res = await wx.cloud.callFunction({
-        name: 'auth',
-        data: { action: 'POST /wx-login' },
-      });
+      const result = await api.auth.wxLogin();
 
-      const result = res.result;
       if (result.code === 0 && result.data && !result.data.needBind) {
         this.globalData.user = result.data.user;
         this.globalData.isLoggedIn = true;
       } else {
-        // openId 已被清空或未绑定，重置登录状态
         this.globalData.user = null;
         this.globalData.isLoggedIn = false;
       }
@@ -58,7 +47,6 @@ App({
 
   /**
    * 重新验证登录状态（每次页面显示时调用）
-   * 返回 true 表示已登录，false 表示未登录并已跳转
    */
   async reCheckLogin() {
     await this.silentLogin();

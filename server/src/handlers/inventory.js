@@ -1,5 +1,6 @@
 const { ObjectId } = require('mongodb');
 const { getDB } = require('../db');
+const { checkAndNotifyStockAlert } = require('../utils/subscribe-message');
 
 /**
  * GET /api/inventory
@@ -113,6 +114,10 @@ async function inbound(req, res) {
     });
 
     res.status(201).json({ code: 0, message: '入库成功', data: doc });
+
+    // 异步检查库存预警
+    checkAndNotifyStockAlert([part_no])
+      .catch(err => console.warn('库存预警检查失败:', err.message));
   } catch (err) {
     if (err.code === 11000) {
       return res.status(409).json({ code: 1, message: '序列号已存在（重复入库）' });
@@ -352,6 +357,12 @@ async function batchImport(req, res) {
     }
 
     res.json({ code: 0, data: results });
+
+    // 异步检查库存预警
+    if (Object.keys(stockIncrements).length > 0) {
+      checkAndNotifyStockAlert(Object.keys(stockIncrements))
+        .catch(err => console.warn('库存预警检查失败:', err.message));
+    }
   } catch (err) {
     console.error('Batch import error:', err);
     res.status(500).json({ code: 1, message: '服务器错误' });

@@ -1,165 +1,260 @@
 /**
- * 云函数调用封装 — 统一接口层
+ * HTTP API 调用封装 — 统一接口层
+ *
+ * 7-5/7-6 改造: wx.cloud.callFunction → wx.request + JWT 认证
+ * 所有页面通过此模块调用后端，页面代码无需改动。
  *
  * 用法:
  *   const api = require('../../utils/api');
  *   const res = await api.inventory.list({ page: 1, pageSize: 20 });
- *   const res = await api.inventory.inbound({ part_no: 'PWR-001', ... });
  */
+
+// 后端基础地址（开发时指向本地 Docker，上线后替换为正式域名）
+const BASE_URL = 'http://localhost:5501';
 
 /**
- * 通用云函数调用
+ * 从本地存储获取 JWT token
  */
-async function callCloud(funcName, action, { body, query, params } = {}) {
-  try {
-    wx.showLoading({ title: '加载中...', mask: true });
+function getToken() {
+  return wx.getStorageSync('token') || '';
+}
 
-    const res = await wx.cloud.callFunction({
-      name: funcName,
-      data: { action, body, query, params },
-    });
-
-    wx.hideLoading();
-
-    const result = res.result;
-    if (!result) {
-      throw new Error('云函数返回为空');
-    }
-
-    // 业务错误
-    if (result.code !== 0) {
-      const statusCode = result._statusCode || 400;
-      if (statusCode === 401 || statusCode === 403) {
-        wx.showToast({ title: result.message || '权限不足', icon: 'none' });
-      }
-      return result;
-    }
-
-    return result;
-  } catch (err) {
-    wx.hideLoading();
-    console.error(`[api] ${funcName}/${action} error:`, err);
-    wx.showToast({ title: '网络请求失败', icon: 'none' });
-    return { code: 1, message: err.message || '网络请求失败' };
+/**
+ * 保存 JWT token 到本地存储
+ */
+function setToken(token) {
+  if (token) {
+    wx.setStorageSync('token', token);
   }
 }
 
 /**
- * 静默调用（不显示 loading）
+ * 清除 JWT token
  */
-async function callCloudSilent(funcName, action, { body, query, params } = {}) {
-  try {
-    const res = await wx.cloud.callFunction({
-      name: funcName,
-      data: { action, body, query, params },
+function clearToken() {
+  wx.removeStorageSync('token');
+}
+
+/**
+ * 封装 wx.request 为 Promise
+ */
+function request({ url, method = 'GET', data, showLoading = true }) {
+  return new Promise((resolve, reject) => {
+    if (showLoading) {
+      wx.showLoading({ title: '加载中...', mask: true });
+    }
+
+    const token = getToken();
+    const header = { 'Content-Type': 'application/json' };
+    if (token) {
+      header['Authorization'] = `Bearer ${token}`;
+    }
+
+    wx.request({
+      url: `${BASE_URL}${url}`,
+      method,
+      data,
+      header,
+      success(res) {
+        if (showLoading) wx.hideLoading();
+
+        const statusCode = res.statusCode;
+        const result = res.data;
+
+        if (statusCode === 401) {
+          // Token 过期或无效，清除并跳转登录
+          clearToken();
+          const app = getApp();
+          if (app) {
+            app.globalData.user = null;
+            app.globalData.isLoggedIn = false;
+          }
+          wx.showToast({ title: result.message || '登录已过期', icon: 'none' });
+          return resolve({ code: 1, message: result.message || '登录已过期', _statusCode: 401 });
+        }
+
+        if (statusCode === 403) {
+          wx.showToast({ title: result.message || '权限不足', icon: 'none' });
+          return resolve({ code: 1, message: result.message || '权限不足', _statusCode: 403 });
+        }
+
+        // 统一返回格式，兼容现有页面代码
+        resolve(result);
+      },
+      fail(err) {
+        if (showLoading) wx.hideLoading();
+        console.error('[api] request error:', url, err);
+        wx.showToast({ title: '网络请求失败', icon: 'none' });
+        reject({ code: 1, message: err.errMsg || '网络请求失败' });
+      },
     });
-    return res.result || { code: 1, message: '云函数返回为空' };
-  } catch (err) {
-    console.error(`[api] ${funcName}/${action} error:`, err);
-    return { code: 1, message: err.message || '网络请求失败' };
+  });
+}
+
+/**
+ * 静默请求（不显示 loading）
+ */
+function requestSilent(opts) {
+  return request({ ...opts, showLoading: false });
+}
+
+/**
+ * 构建 query string
+ */
+function toQueryString(query) {
+  if (!query || Object.keys(query).length === 0) return '';
+  const parts = [];
+  for (const [key, val] of Object.entries(query)) {
+    if (val !== undefined && val !== null && val !== '') {
+      parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(val)}`);
+    }
   }
+  return parts.length > 0 ? `?${parts.join('&')}` : '';
 }
 
 // ── 认证模块 ──────────────────────────────────────────
 const auth = {
-  wxLogin() {
-    return callCloud('auth', 'POST /wx-login');
+  /**
+   * 微信登录（wx.login code → 后端换 openId → JWT）
+   */
+  async wxLogin() {
+    try {
+      const { code } = await wx.login();
+      const result = await requestSilent({
+        url: '/api/auth/wx-login',
+        method: 'POST',
+        data: { code },
+      });
+      if (result.code === 0 && result.data && result.data.token) {
+        setToken(result.data.token);
+      }
+      return result;
+    } catch (err) {
+      console.error('[api] wxLogin error:', err);
+      return { code: 1, message: err.message || '网络请求失败' };
+    }
   },
-  bind(username, password) {
-    return callCloud('auth', 'POST /bind', { body: { username, password } });
+
+  /**
+   * 绑定系统账号
+   */
+  async bind(username, password) {
+    try {
+      const { code } = await wx.login();
+      const result = await request({
+        url: '/api/auth/wx-bind',
+        method: 'POST',
+        data: { code, username, password },
+      });
+      if (result.code === 0 && result.data && result.data.token) {
+        setToken(result.data.token);
+      }
+      return result;
+    } catch (err) {
+      console.error('[api] bind error:', err);
+      return { code: 1, message: err.message || '网络请求失败' };
+    }
   },
+
+  /**
+   * 解绑微信
+   */
   unbind(username) {
-    return callCloud('auth', 'POST /unbind', { body: { username } });
+    return request({
+      url: '/api/auth/wx-unbind',
+      method: 'POST',
+      data: { username },
+    });
   },
 };
 
 // ── 库存模块 ──────────────────────────────────────────
 const inventory = {
   list(query = {}) {
-    return callCloud('inventory', 'GET /', { query });
+    return request({ url: `/api/inventory${toQueryString(query)}` });
   },
   inbound(data) {
-    return callCloud('inventory', 'POST /inbound', { body: data });
+    return request({ url: '/api/inventory/inbound', method: 'POST', data });
   },
   edit(id, data) {
-    return callCloud('inventory', `PATCH /${id}`, { body: data, params: { id } });
+    return request({ url: `/api/inventory/${id}`, method: 'PATCH', data });
   },
   scan(sn) {
-    return callCloud('inventory', `GET /scan/${sn}`, { params: { sn } });
+    return request({ url: `/api/inventory/scan/${encodeURIComponent(sn)}` });
   },
   batchImport(items) {
-    return callCloud('inventory', 'POST /batch-import', { body: { items } });
+    return request({ url: '/api/inventory/batch-import', method: 'POST', data: { items } });
   },
 };
 
 // ── 备件类型模块 ──────────────────────────────────────
 const partTypes = {
   list(query = {}) {
-    return callCloud('partTypes', 'GET /', { query });
+    return request({ url: `/api/part-types${toQueryString(query)}` });
   },
   create(data) {
-    return callCloud('partTypes', 'POST /', { body: data });
+    return request({ url: '/api/part-types', method: 'POST', data });
   },
   update(partNo, data) {
-    return callCloud('partTypes', `PATCH /${partNo}`, { body: data, params: { part_no: partNo } });
+    return request({ url: `/api/part-types/${encodeURIComponent(partNo)}`, method: 'PATCH', data });
   },
   remove(partNo) {
-    return callCloud('partTypes', `DELETE /${partNo}`, { params: { part_no: partNo } });
+    return request({ url: `/api/part-types/${encodeURIComponent(partNo)}`, method: 'DELETE' });
   },
 };
 
 // ── 申请模块 ──────────────────────────────────────────
 const requests = {
   create(data) {
-    return callCloud('requests', 'POST /', { body: data });
+    return request({ url: '/api/requests', method: 'POST', data });
   },
   list(query = {}) {
-    return callCloud('requests', 'GET /', { query });
+    return request({ url: `/api/requests${toQueryString(query)}` });
   },
   detail(id) {
-    return callCloud('requests', `GET /${id}`, { params: { id } });
+    return request({ url: `/api/requests/${id}` });
   },
   approve(id, partialItems) {
-    const body = partialItems ? { partial_items: partialItems } : {};
-    return callCloud('requests', `POST /${id}/approve`, { body, params: { id } });
+    const data = partialItems ? { partial_items: partialItems } : {};
+    return request({ url: `/api/requests/${id}/approve`, method: 'POST', data });
   },
   reject(id, reason) {
-    return callCloud('requests', `POST /${id}/reject`, { body: { reason }, params: { id } });
+    return request({ url: `/api/requests/${id}/reject`, method: 'POST', data: { reason } });
   },
   cancel(id) {
-    return callCloud('requests', `POST /${id}/cancel`, { params: { id } });
+    return request({ url: `/api/requests/${id}/cancel`, method: 'POST' });
   },
 };
 
 // ── 分析模块 ──────────────────────────────────────────
 const analytics = {
   kpi() {
-    return callCloudSilent('analytics', 'GET /kpi');
+    return requestSilent({ url: '/api/analytics/kpi' });
   },
   distribution() {
-    return callCloudSilent('analytics', 'GET /distribution');
+    return requestSilent({ url: '/api/analytics/distribution' });
   },
   safetyStock() {
-    return callCloudSilent('analytics', 'GET /safety-stock');
+    return requestSilent({ url: '/api/analytics/safety-stock' });
   },
   trend() {
-    return callCloudSilent('analytics', 'GET /trend');
+    return requestSilent({ url: '/api/analytics/trend' });
   },
   consumption(months = 6) {
-    return callCloudSilent('analytics', 'GET /consumption', { query: { months } });
+    return requestSilent({ url: `/api/analytics/consumption?months=${months}` });
   },
   age(staleDays = 90) {
-    return callCloudSilent('analytics', 'GET /age', { query: { stale_days: staleDays } });
+    return requestSilent({ url: `/api/analytics/age?stale_days=${staleDays}` });
   },
   turnover(months = 6) {
-    return callCloudSilent('analytics', 'GET /turnover', { query: { months } });
+    return requestSilent({ url: `/api/analytics/turnover?months=${months}` });
   },
 };
 
 // ── 日志模块 ──────────────────────────────────────────
 const logs = {
   list(query = {}) {
-    return callCloud('logs', 'GET /', { query });
+    return request({ url: `/api/logs${toQueryString(query)}` });
   },
 };
 
@@ -170,6 +265,9 @@ module.exports = {
   requests,
   analytics,
   logs,
-  callCloud,
-  callCloudSilent,
+  // 导出工具方法供外部使用
+  setToken,
+  clearToken,
+  getToken,
+  BASE_URL,
 };

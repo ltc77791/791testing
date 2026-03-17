@@ -1,5 +1,6 @@
 const { ObjectId } = require('mongodb');
 const { getDB } = require('../db');
+const { notifyRequestSubmitted, notifyApprovalResult, checkAndNotifyStockAlert } = require('../utils/subscribe-message');
 
 /**
  * POST /api/requests
@@ -109,6 +110,13 @@ async function createRequest(req, res) {
     });
 
     res.status(201).json({ code: 0, message: '申请提交成功', data: { _id: requestId, ...requestDoc } });
+
+    // 异步发送订阅消息通知管理员（不阻塞响应）
+    notifyRequestSubmitted({
+      applicant: req.user.username,
+      items: requestItems,
+      projectLocation: project_location,
+    }).catch(err => console.warn('通知发送失败:', err.message));
   } catch (err) {
     console.error('Create request error:', err);
     res.status(500).json({ code: 1, message: '服务器错误' });
@@ -331,6 +339,15 @@ async function approveRequest(req, res) {
     });
 
     res.json({ code: 0, message: `审批通过，出库 ${outboundCount} 件` });
+
+    // 异步通知申请人 + 检查库存预警
+    notifyApprovalResult({
+      applicantUsername: request.applicant,
+      result: 'approved',
+      items: request.items,
+    }).catch(err => console.warn('通知发送失败:', err.message));
+    checkAndNotifyStockAlert(Object.keys(stockDecrements))
+      .catch(err => console.warn('库存预警检查失败:', err.message));
   } catch (err) {
     console.error('Approve request error:', err);
     res.status(500).json({ code: 1, message: '服务器错误' });
@@ -401,6 +418,14 @@ async function rejectRequest(req, res) {
     });
 
     res.json({ code: 0, message: '申请已驳回' });
+
+    // 异步通知申请人
+    notifyApprovalResult({
+      applicantUsername: request.applicant,
+      result: 'rejected',
+      items: request.items,
+      reason,
+    }).catch(err => console.warn('通知发送失败:', err.message));
   } catch (err) {
     console.error('Reject request error:', err);
     res.status(500).json({ code: 1, message: '服务器错误' });
