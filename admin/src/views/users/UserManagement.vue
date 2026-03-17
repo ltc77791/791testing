@@ -35,6 +35,12 @@
           />
         </template>
       </el-table-column>
+      <el-table-column label="微信绑定" width="100" align="center">
+        <template #default="{ row }">
+          <el-tag v-if="row.openid" type="success" size="small">已绑定</el-tag>
+          <el-tag v-else type="info" size="small">未绑定</el-tag>
+        </template>
+      </el-table-column>
       <el-table-column label="最后登录" min-width="160">
         <template #default="{ row }">
           {{ row.last_login ? formatTime(row.last_login) : '从未登录' }}
@@ -45,11 +51,19 @@
           {{ formatTime(row.created_at) }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="200" fixed="right">
+      <el-table-column label="操作" width="280" fixed="right">
         <template #default="{ row }">
           <el-button size="small" @click="openEditDialog(row)">编辑</el-button>
           <el-button size="small" type="warning" @click="openResetPwdDialog(row)">
             重置密码
+          </el-button>
+          <el-button
+            v-if="row.openid"
+            size="small"
+            type="info"
+            @click="handleUnbindWx(row.username)"
+          >
+            解绑微信
           </el-button>
           <el-popconfirm
             title="确定要删除该用户吗？"
@@ -143,6 +157,7 @@ interface UserRecord {
   username: string
   roles: string[]
   is_active: boolean
+  openid?: string
   created_at: string
   last_login: string | null
 }
@@ -287,6 +302,17 @@ async function handleResetPwd() {
     resetPwdVisible.value = false
   } finally {
     submitting.value = false
+  }
+}
+
+// ---- 解绑微信 ----
+async function handleUnbindWx(username: string) {
+  try {
+    await http.post('/auth/wx-unbind', { username })
+    ElMessage.success('微信解绑成功')
+    fetchUsers()
+  } catch {
+    // http 拦截器已处理
   }
 }
 

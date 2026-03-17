@@ -43,8 +43,11 @@ Component({
 
       let tabs;
       if (isOperator) {
-        // operator 隐藏审批 tab
-        tabs = this.data.allTabs.filter(t => t.pagePath !== 'pages/approval/approval');
+        // operator 隐藏首页和审批 tab
+        tabs = this.data.allTabs.filter(t =>
+          t.pagePath !== 'pages/approval/approval' &&
+          t.pagePath !== 'pages/index/index'
+        );
       } else {
         tabs = this.data.allTabs.slice();
       }

@@ -37,6 +37,13 @@ Page({
     }
 
     if (app.globalData.isLoggedIn) {
+      // operator 不显示首页，直接跳转库存页
+      const isOperator = app.hasRole('operator') && !app.hasRole('admin', 'manager');
+      if (isOperator) {
+        wx.switchTab({ url: '/pages/inventory/inventory' });
+        return;
+      }
+
       this.setData({
         isLoggedIn: true,
         needBind: false,
@@ -85,6 +92,14 @@ Page({
       }
 
       wx.showToast({ title: '绑定成功', icon: 'success' });
+
+      // operator 绑定成功后直接跳转库存页
+      const isOperator = app.hasRole('operator') && !app.hasRole('admin', 'manager');
+      if (isOperator) {
+        wx.switchTab({ url: '/pages/inventory/inventory' });
+        return;
+      }
+
       this.loadDashboard();
     } else {
       wx.showToast({ title: res.message || '绑定失败', icon: 'none' });
