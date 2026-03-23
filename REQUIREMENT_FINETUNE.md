@@ -10,6 +10,8 @@
 |------|------|------|----------|------|----------|
 | 1 | 2026-03-23 | 后端 / 库存入库 | 自动生成序列号格式改为 `nucyyyymmdd****`（每日递增，如 `nuc202603230001`） | 已完成 | `server/src/handlers/inventory.js` |
 | 2 | 2026-03-23 | 出库申请 (全栈) | 出库申请新增必填项「出库原因」，下拉选择：维修/调用/销售 | 已完成 | `server/src/handlers/requests.js`, `server/src/utils/validate.js`, `admin/src/views/requests/RequestPage.vue`, `admin/src/views/requests/ApprovalPage.vue`, `miniprogram/pages/request/request.wxml`, `miniprogram/pages/request/request.js`, `miniprogram/pages/approval/approval.wxml`, `miniprogram/cloudfunctions/requests/handlers.js` |
+| 3 | 2026-03-23 | 出库原因选项 | 出库原因下拉选项「项目」改为「调用」 | 已完成 | `server/src/handlers/requests.js`, `server/src/utils/validate.js`, `admin/src/views/requests/RequestPage.vue`, `miniprogram/pages/request/request.js`, `miniprogram/cloudfunctions/requests/handlers.js` |
+| 4 | 2026-03-23 | 字典管理 (全栈) | 新增通用字典管理模块，支持「项目号」和「采购合同号」两个分类的增删改查及启用/停用 | 已完成 | `server/src/db.js`, `server/src/index.js`, `server/src/utils/validate.js`, `server/src/handlers/dictionaries.js`, `server/src/routes/dictionaries.js`, `admin/src/views/dictionaries/DictionaryManagement.vue`, `admin/src/router/index.ts`, `admin/src/components/AppLayout.vue` |
 
 ---
 
@@ -55,3 +57,56 @@
 **影响范围**：
 - 新提交的出库申请必须选择出库原因，否则无法提交
 - 已有申请数据的 `outbound_reason` 为空，展示为 `-`
+
+---
+
+### 3. 出库原因选项「项目」改为「调用」（2026-03-23）
+
+**背景**：用户反馈出库原因中的「项目」表述不够准确，改为「调用」更贴合实际业务场景。
+
+**变更内容**：
+- 出库原因下拉选项由 `维修`/`项目`/`销售` 改为 `维修`/`调用`/`销售`
+
+**影响范围**：
+- 后端 Joi 校验、handler 硬编码校验、PC 前端下拉选项、小程序 picker 选项均已同步更新
+- 已有申请数据中 `outbound_reason` 为 `项目` 的记录不受影响，仅展示为历史值
+
+---
+
+### 4. 通用字典管理模块（2026-03-23）
+
+**背景**：系统需要支持「项目号」和「采购合同号」等可变下拉选项的维护。这些数据随业务变化频繁增减，但不适合为每类数据建立独立的业务实体表，采用通用字典表方案以控制系统边界。
+
+**变更内容**：
+- 新增 `dictionaries` 集合，通过 `category` 字段区分不同分类
+- 当前支持两个分类：`project_no`（项目号）、`contract_no`（采购合同号）
+- PC 管理后台侧边栏新增「字典管理」菜单（admin/manager 可见）
+- 页面使用 tab 切换分类，每个分类支持：新增、编辑、启用/停用、删除、搜索、分页
+- 提供 `GET /api/dictionaries/options` 接口供其他页面下拉框获取启用中的选项
+
+**数据模型**：
+```
+dictionaries {
+  category: 'project_no' | 'contract_no',
+  label: string,          // 选项值
+  is_active: boolean,     // 启用/停用
+  sort_order: number,     // 排序
+  created_at, updated_at
+}
+索引: category+label (unique), category+is_active
+```
+
+**API 端点**：
+| Method | Path | 权限 | 说明 |
+|--------|------|------|------|
+| GET | /api/dictionaries | admin/manager | 分页列表（管理用） |
+| GET | /api/dictionaries/options | 登录 | 获取启用选项（供下拉框） |
+| POST | /api/dictionaries | admin/manager | 新增字典项 |
+| PATCH | /api/dictionaries/:id | admin/manager | 编辑/启停用 |
+| DELETE | /api/dictionaries/:id | admin/manager | 删除字典项 |
+
+**设计思路**：
+- 字典表只管理「有哪些选项可选」，不涉及业务属性（如合同金额、项目进度等）
+- 将来新增分类（如供应商名称等）只需在 `VALID_CATEGORIES` 中添加即可，前端 tab 同步新增
+- 停用的字典项不会出现在业务表单的下拉框中，但不影响已有关联数据的展示
+- 所有增删改操作均记录系统日志（category: `Dictionary`）
