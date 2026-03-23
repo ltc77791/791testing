@@ -40,6 +40,12 @@
           <template #title>备件类型</template>
         </el-menu-item>
 
+        <!-- 字典管理 — admin / manager -->
+        <el-menu-item v-if="authStore.isManager" index="/dictionaries">
+          <el-icon><Collection /></el-icon>
+          <template #title>字典管理</template>
+        </el-menu-item>
+
         <!-- 库存管理 — admin / manager -->
         <el-menu-item v-if="authStore.isManager" index="/inventory">
           <el-icon><Box /></el-icon>
@@ -134,7 +140,7 @@ import type { FormInstance } from 'element-plus'
 import { useAuthStore } from '../stores/auth'
 import http from '../utils/http'
 import {
-  DataAnalysis, TrendCharts, Timer, User, Files, Box,
+  DataAnalysis, TrendCharts, Timer, User, Files, Collection, Box,
   Download, DocumentAdd, Stamp, Document, UserFilled, ArrowDown,
 } from '@element-plus/icons-vue'
 
@@ -150,6 +156,7 @@ const menuMap: Record<string, string> = {
   '/age': '库龄分析',
   '/users': '用户管理',
   '/part-types': '备件类型',
+  '/dictionaries': '字典管理',
   '/inventory': '库存管理',
   '/inbound': '备件入库',
   '/requests': '申请出库',

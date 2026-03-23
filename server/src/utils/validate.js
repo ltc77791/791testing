@@ -245,6 +245,38 @@ const schemas = {
     }),
   },
 
+  // --- 字典管理 ---
+  dictionaries: {
+    list: Joi.object({
+      category: Joi.string().trim().required().messages({
+        'string.empty': '字典分类不能为空',
+        'any.required': '字典分类不能为空',
+      }),
+      keyword: Joi.string().allow('').max(100),
+      is_active: Joi.boolean(),
+      page,
+      pageSize,
+    }),
+
+    create: Joi.object({
+      category: Joi.string().trim().max(50).required().messages({
+        'string.empty': '字典分类不能为空',
+        'any.required': '字典分类不能为空',
+      }),
+      label: Joi.string().trim().max(100).required().messages({
+        'string.empty': '字典值不能为空',
+        'any.required': '字典值不能为空',
+      }),
+    }),
+
+    update: Joi.object({
+      label: Joi.string().trim().max(100),
+      is_active: Joi.boolean(),
+    }).min(1).messages({
+      'object.min': '没有需要更新的字段',
+    }),
+  },
+
   // --- 数据分析 (query 参数) ---
   analytics: {
     consumption: Joi.object({
