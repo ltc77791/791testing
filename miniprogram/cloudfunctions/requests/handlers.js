@@ -18,9 +18,15 @@ async function createRequest(req, res) {
       return res.status(403).json({ code: 1, message: '无权限提交申请' });
     }
 
-    const { items, project_location, remark } = req.body;
+    const { items, project_location, project_no, outbound_reason, remark } = req.body;
     const db = getDB();
     const now = new Date();
+
+    // Validate outbound_reason
+    const validReasons = ['维修', '调用', '销售'];
+    if (!outbound_reason || !validReasons.includes(outbound_reason)) {
+      return res.status(400).json({ code: 1, message: '出库原因必须为: 维修, 调用, 销售' });
+    }
 
     const reservedSNs = [];
     const requestItems = [];
@@ -70,7 +76,7 @@ async function createRequest(req, res) {
 
     const requestDoc = {
       applicant: req.user.username, status: 'pending',
-      items: requestItems, project_location, remark: remark || '',
+      items: requestItems, project_location, project_no, outbound_reason, remark: remark || '',
       created_at: now, updated_at: now,
       approved_by: null, approved_at: null, reject_reason: null,
     };

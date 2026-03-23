@@ -10,8 +10,32 @@
           label-width="100px"
           style="max-width: 700px; margin-top: 12px"
         >
+          <el-form-item label="项目号" prop="project_no">
+            <el-select
+              v-model="form.project_no"
+              filterable
+              placeholder="选择项目号"
+              style="width: 100%"
+            >
+              <el-option
+                v-for="p in projectOptions"
+                :key="p"
+                :label="p"
+                :value="p"
+              />
+            </el-select>
+          </el-form-item>
+
           <el-form-item label="项目地点" prop="project_location">
             <el-input v-model="form.project_location" placeholder="如 张江IDC扩容" />
+          </el-form-item>
+
+          <el-form-item label="出库原因" prop="outbound_reason">
+            <el-select v-model="form.outbound_reason" placeholder="请选择出库原因" style="width: 100%">
+              <el-option label="维修" value="维修" />
+              <el-option label="调用" value="调用" />
+              <el-option label="销售" value="销售" />
+            </el-select>
           </el-form-item>
 
           <!-- 动态申请明细 -->
@@ -116,7 +140,13 @@
               </span>
             </template>
           </el-table-column>
+          <el-table-column prop="project_no" label="项目号" min-width="130">
+            <template #default="{ row }">{{ row.project_no || '-' }}</template>
+          </el-table-column>
           <el-table-column prop="project_location" label="项目地点" min-width="140" />
+          <el-table-column prop="outbound_reason" label="出库原因" width="100" align="center">
+            <template #default="{ row }">{{ row.outbound_reason || '-' }}</template>
+          </el-table-column>
           <el-table-column label="状态" width="100" align="center">
             <template #default="{ row }">
               <el-tag :type="statusTagType(row.status)" size="small">
@@ -172,7 +202,9 @@
             {{ statusLabel(detailData.status) }}
           </el-tag>
         </el-descriptions-item>
+        <el-descriptions-item label="项目号">{{ detailData.project_no || '-' }}</el-descriptions-item>
         <el-descriptions-item label="项目地点">{{ detailData.project_location }}</el-descriptions-item>
+        <el-descriptions-item label="出库原因">{{ detailData.outbound_reason || '-' }}</el-descriptions-item>
         <el-descriptions-item label="申请时间">{{ formatTime(detailData.created_at) }}</el-descriptions-item>
         <el-descriptions-item label="审批人">{{ detailData.approved_by || '-' }}</el-descriptions-item>
         <el-descriptions-item label="审批时间">{{ detailData.approved_at ? formatTime(detailData.approved_at) : '-' }}</el-descriptions-item>
@@ -194,12 +226,22 @@
         <el-table-column prop="part_no" label="备件编号" min-width="130" />
         <el-table-column prop="part_name" label="备件名称" min-width="140" />
         <el-table-column prop="quantity" label="申请数量" width="100" align="center" />
+        <el-table-column label="价值类型" width="90" align="center">
+          <template #default="{ row }">
+            <el-tag :type="(row.value_type || '高价值') === '高价值' ? 'danger' : 'info'" size="small">
+              {{ row.value_type || '高价值' }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="预留序列号" min-width="200">
           <template #default="{ row }">
-            <span v-if="row.serial_numbers?.length">
-              {{ row.serial_numbers.join(', ') }}
-            </span>
-            <span v-else>-</span>
+            <template v-if="(row.value_type || '高价值') === '高价值'">
+              <span v-if="row.serial_numbers?.length">
+                {{ row.serial_numbers.join(', ') }}
+              </span>
+              <span v-else>-</span>
+            </template>
+            <span v-else style="color: #909399">低价值备件，无需序列号</span>
           </template>
         </el-table-column>
       </el-table>
@@ -246,17 +288,22 @@ interface RequestRecord {
 
 const activeTab = ref('create')
 const partTypeOptions = ref<PartTypeOption[]>([])
+const projectOptions = ref<string[]>([])
 
 // ======== 提交申请 ========
 const formRef = ref<FormInstance>()
 const submitting = ref(false)
 const form = reactive({
+  project_no: '',
   project_location: '',
+  outbound_reason: '',
   remark: '',
   items: [{ part_no: '', quantity: 1 }] as { part_no: string; quantity: number }[],
 })
 const formRules = {
+  project_no: [{ required: true, message: '请选择项目号', trigger: 'change' }],
   project_location: [{ required: true, message: '请输入项目地点', trigger: 'blur' }],
+  outbound_reason: [{ required: true, message: '请选择出库原因', trigger: 'change' }],
 }
 
 function addItem() {
@@ -275,7 +322,9 @@ async function handleSubmit() {
   try {
     await http.post('/requests', {
       items: form.items.map(i => ({ part_no: i.part_no, quantity: i.quantity })),
+      project_no: form.project_no,
       project_location: form.project_location,
+      outbound_reason: form.outbound_reason,
       remark: form.remark,
     })
     ElMessage.success('申请提交成功')
@@ -291,6 +340,8 @@ async function handleSubmit() {
 function resetForm() {
   formRef.value?.resetFields()
   form.items = [{ part_no: '', quantity: 1 }]
+  form.project_no = ''
+  form.outbound_reason = ''
   form.remark = ''
 }
 
@@ -395,8 +446,16 @@ async function loadPartTypes() {
   } catch { /* ignore */ }
 }
 
+async function loadProjectOptions() {
+  try {
+    const res: any = await http.get('/dictionaries/options', { params: { category: 'project_no' } })
+    projectOptions.value = res.data || []
+  } catch { /* ignore */ }
+}
+
 onMounted(() => {
   loadPartTypes()
+  loadProjectOptions()
   fetchList()
 })
 </script>

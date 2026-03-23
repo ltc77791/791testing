@@ -40,7 +40,7 @@ async function initCollections() {
   const existingNames = existing.map(c => c.name);
 
   const collections = [
-    'users', 'part_types', 'inventory', 'requests', 'sys_logs', 'counters'
+    'users', 'part_types', 'inventory', 'requests', 'sys_logs', 'counters', 'dictionaries'
   ];
 
   for (const name of collections) {
@@ -78,6 +78,11 @@ async function initCollections() {
   const logs = database.collection('sys_logs');
   await logs.createIndex({ category: 1, created_at: -1 });
   await logs.createIndex({ operator: 1 });
+
+  // dictionaries: category + label unique, category index
+  const dict = database.collection('dictionaries');
+  await dict.createIndex({ category: 1, label: 1 }, { unique: true });
+  await dict.createIndex({ category: 1, is_active: 1 });
 
   // counters: ensure the singleton stats document exists
   const counters = database.collection('counters');

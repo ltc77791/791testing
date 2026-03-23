@@ -48,6 +48,13 @@ const routes: RouteRecordRaw[] = [
         component: () => import('../views/part-types/PartTypeManagement.vue'),
         meta: { roles: ['admin', 'manager'] },
       },
+      // 字典管理
+      {
+        path: 'dictionaries',
+        name: 'Dictionaries',
+        component: () => import('../views/dictionaries/DictionaryManagement.vue'),
+        meta: { roles: ['admin', 'manager'] },
+      },
       // 库存管理
       {
         path: 'inventory',

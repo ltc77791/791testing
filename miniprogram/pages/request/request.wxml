@@ -33,7 +33,7 @@
           {{sub.part_name}} x {{sub.quantity}}
         </view>
       </view>
-      <view style="font-size: 24rpx; color: #999; margin-top: 8rpx;">项目: {{item.project_location}}</view>
+      <view style="font-size: 24rpx; color: #999; margin-top: 8rpx;">项目号: {{item.project_no || '-'}} | 项目: {{item.project_location}} | 原因: {{item.outbound_reason || '-'}}</view>
 
       <!-- 操作按钮：仅本人提交的待审批申请可撤回 -->
       <view wx:if="{{item.status === 'pending' && item.applicant === currentUser}}" style="margin-top: 16rpx; text-align: right;">
@@ -53,10 +53,30 @@
       <view class="card">
         <view class="card-title">申请出库</view>
 
+        <!-- 项目号 -->
+        <view class="form-group">
+          <view class="form-label">项目号 *</view>
+          <picker mode="selector" range="{{projectOptions}}" bindchange="onProjectSelect">
+            <view class="form-input" style="line-height: 80rpx;">
+              {{projectNo || '请选择项目号'}}
+            </view>
+          </picker>
+        </view>
+
         <!-- 项目地点 -->
         <view class="form-group">
           <view class="form-label">项目地点 *</view>
           <input class="form-input" placeholder="请输入项目地点" value="{{projectLocation}}" bindinput="onProjectInput" />
+        </view>
+
+        <!-- 出库原因 -->
+        <view class="form-group">
+          <view class="form-label">出库原因 *</view>
+          <picker mode="selector" range="{{reasonOptions}}" bindchange="onReasonSelect">
+            <view class="form-input" style="line-height: 80rpx;">
+              {{outboundReason || '请选择出库原因'}}
+            </view>
+          </picker>
         </view>
 
         <!-- 备件明细 -->

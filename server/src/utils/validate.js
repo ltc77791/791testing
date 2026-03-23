@@ -25,6 +25,7 @@ const validRoles = Joi.array()
     return value;
   });
 const validCondition = Joi.string().valid('全新', '利旧/返还');
+const validValueType = Joi.string().valid('高价值', '低价值');
 const objectIdPattern = /^[0-9a-fA-F]{24}$/;
 
 // ========== Schemas 按模块组织 ==========
@@ -104,6 +105,9 @@ const schemas = {
         'string.empty': '备件名称不能为空',
         'any.required': '备件名称不能为空',
       }),
+      value_type: validValueType.default('高价值').messages({
+        'any.only': '价值类型必须为: 高价值, 低价值',
+      }),
       min_stock: Joi.number().integer().min(0).default(0).messages({
         'number.min': '安全库存不能为负数',
       }),
@@ -111,6 +115,9 @@ const schemas = {
 
     update: Joi.object({
       part_name: Joi.string().trim().max(100),
+      value_type: validValueType.messages({
+        'any.only': '价值类型必须为: 高价值, 低价值',
+      }),
       min_stock: Joi.number().integer().min(0).messages({
         'number.min': '安全库存不能为负数',
       }),
@@ -137,9 +144,8 @@ const schemas = {
         'string.empty': '备件编号不能为空',
         'any.required': '备件编号不能为空',
       }),
-      serial_number: Joi.string().trim().required().messages({
+      serial_number: Joi.string().trim().allow('').optional().messages({
         'string.empty': '序列号不能为空',
-        'any.required': '序列号不能为空',
       }),
       subsidiary: Joi.string().trim().required().messages({
         'string.empty': '子公司不能为空',
@@ -151,6 +157,10 @@ const schemas = {
       }),
       condition: validCondition.default('全新').messages({
         'any.only': '成色必须为: 全新, 利旧/返还',
+      }),
+      contract_no: Joi.string().trim().max(100).required().messages({
+        'string.empty': '采购合同号不能为空',
+        'any.required': '采购合同号不能为空',
       }),
     }),
 
@@ -169,10 +179,11 @@ const schemas = {
       items: Joi.array().items(
         Joi.object({
           part_no: Joi.string().trim().required(),
-          serial_number: Joi.string().trim().required(),
+          serial_number: Joi.string().trim().allow('').optional(),
           subsidiary: Joi.string().trim().required(),
           warehouse: Joi.string().trim().required(),
           condition: validCondition.default('全新'),
+          contract_no: Joi.string().trim().max(100).required(),
         })
       ).min(1).max(500).required().messages({
         'array.min': '导入数据不能为空',
@@ -204,6 +215,15 @@ const schemas = {
         'string.empty': '项目地点不能为空',
         'any.required': '项目地点不能为空',
       }),
+      project_no: Joi.string().trim().max(100).required().messages({
+        'string.empty': '项目号不能为空',
+        'any.required': '项目号不能为空',
+      }),
+      outbound_reason: Joi.string().valid('维修', '调用', '销售').required().messages({
+        'any.only': '出库原因必须为: 维修, 调用, 销售',
+        'string.empty': '出库原因不能为空',
+        'any.required': '出库原因不能为空',
+      }),
       remark: Joi.string().allow('').max(500).default(''),
     }),
 
@@ -220,8 +240,9 @@ const schemas = {
       partial_items: Joi.array().items(
         Joi.object({
           part_no: Joi.string().trim().required(),
-          serial_numbers: Joi.array().items(Joi.string().trim()).min(1).required(),
-        })
+          serial_numbers: Joi.array().items(Joi.string().trim()).min(1),
+          quantity: Joi.number().integer().min(1),
+        }).or('serial_numbers', 'quantity')
       ).min(1),
     }),
 
@@ -230,6 +251,38 @@ const schemas = {
         'string.empty': '驳回原因不能为空',
         'any.required': '驳回原因不能为空',
       }),
+    }),
+  },
+
+  // --- 字典管理 ---
+  dictionaries: {
+    list: Joi.object({
+      category: Joi.string().trim().required().messages({
+        'string.empty': '字典分类不能为空',
+        'any.required': '字典分类不能为空',
+      }),
+      keyword: Joi.string().allow('').max(100),
+      is_active: Joi.boolean(),
+      page,
+      pageSize,
+    }),
+
+    create: Joi.object({
+      category: Joi.string().trim().max(50).required().messages({
+        'string.empty': '字典分类不能为空',
+        'any.required': '字典分类不能为空',
+      }),
+      label: Joi.string().trim().max(100).required().messages({
+        'string.empty': '字典值不能为空',
+        'any.required': '字典值不能为空',
+      }),
+    }),
+
+    update: Joi.object({
+      label: Joi.string().trim().max(100),
+      is_active: Joi.boolean(),
+    }).min(1).messages({
+      'object.min': '没有需要更新的字段',
     }),
   },
 

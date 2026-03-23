@@ -26,7 +26,10 @@
             </el-select>
           </el-form-item>
           <el-form-item label="序列号" prop="serial_number">
-            <el-input v-model="singleForm.serial_number" placeholder="扫码或手动输入序列号" />
+            <el-input v-model="singleForm.serial_number" :placeholder="isHighValue ? '扫码或手动输入序列号' : '低价值备件可不填，系统自动生成'" />
+            <div v-if="!isHighValue && singleForm.part_no" style="font-size: 12px; color: #909399; margin-top: 2px">
+              低价值备件序列号非必填，留空将自动生成
+            </div>
           </el-form-item>
           <el-form-item label="子公司" prop="subsidiary">
             <el-input v-model="singleForm.subsidiary" placeholder="如 华东子公司" />
@@ -39,6 +42,21 @@
               <el-radio value="全新">全新</el-radio>
               <el-radio value="利旧/返还">利旧/返还</el-radio>
             </el-radio-group>
+          </el-form-item>
+          <el-form-item label="采购合同号" prop="contract_no">
+            <el-select
+              v-model="singleForm.contract_no"
+              filterable
+              placeholder="选择采购合同号"
+              style="width: 100%"
+            >
+              <el-option
+                v-for="c in contractOptions"
+                :key="c"
+                :label="c"
+                :value="c"
+              />
+            </el-select>
           </el-form-item>
           <el-form-item>
             <el-button type="primary" :loading="singleSubmitting" @click="handleSingleSubmit">
@@ -97,6 +115,7 @@
           <el-table-column prop="subsidiary" label="子公司" min-width="120" />
           <el-table-column prop="warehouse" label="仓库" min-width="120" />
           <el-table-column prop="condition" label="成色" width="100" />
+          <el-table-column prop="contract_no" label="采购合同号" min-width="130" />
         </el-table>
 
         <div v-if="batchPreview.length > 0">
@@ -159,6 +178,7 @@
               {{ scanRecord.status === 0 ? '在库' : '已出库' }}
             </el-tag>
           </el-descriptions-item>
+          <el-descriptions-item label="采购合同号">{{ scanRecord.contract_no || '-' }}</el-descriptions-item>
           <el-descriptions-item label="入库时间">{{ formatTime(scanRecord.inbound_time) }}</el-descriptions-item>
           <el-descriptions-item label="入库人">{{ scanRecord.inbound_operator }}</el-descriptions-item>
           <el-descriptions-item label="出库时间">{{ scanRecord.outbound_time ? formatTime(scanRecord.outbound_time) : '-' }}</el-descriptions-item>
@@ -173,7 +193,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import type { FormInstance, UploadFile } from 'element-plus'
@@ -183,6 +203,7 @@ import http from '../../utils/http'
 interface PartTypeOption {
   part_no: string
   part_name: string
+  value_type: string
 }
 
 interface InventoryRecord {
@@ -207,10 +228,12 @@ interface BatchItem {
   subsidiary: string
   warehouse: string
   condition: string
+  contract_no: string
 }
 
 const activeTab = ref('single')
 const partTypeOptions = ref<PartTypeOption[]>([])
+const contractOptions = ref<string[]>([])
 
 // ======== 单件入库 ========
 const singleFormRef = ref<FormInstance>()
@@ -221,14 +244,25 @@ const singleForm = reactive({
   subsidiary: '',
   warehouse: '',
   condition: '全新',
+  contract_no: '',
 })
-const singleRules = {
+const selectedPartType = computed(() =>
+  partTypeOptions.value.find(pt => pt.part_no === singleForm.part_no)
+)
+const isHighValue = computed(() =>
+  (selectedPartType.value?.value_type || '高价值') === '高价值'
+)
+
+const singleRules = computed(() => ({
   part_no: [{ required: true, message: '请选择备件类型', trigger: 'change' }],
-  serial_number: [{ required: true, message: '请输入序列号', trigger: 'blur' }],
+  serial_number: isHighValue.value
+    ? [{ required: true, message: '请输入序列号', trigger: 'blur' }]
+    : [],
   subsidiary: [{ required: true, message: '请输入子公司', trigger: 'blur' }],
   warehouse: [{ required: true, message: '请输入仓库', trigger: 'blur' }],
   condition: [{ required: true, message: '请选择成色', trigger: 'change' }],
-}
+  contract_no: [{ required: true, message: '请选择采购合同号', trigger: 'change' }],
+}))
 
 // ======== 批量导入 ========
 const fileName = ref('')
@@ -250,11 +284,22 @@ async function loadPartTypes() {
     partTypeOptions.value = res.data.items.map((i: any) => ({
       part_no: i.part_no,
       part_name: i.part_name,
+      value_type: i.value_type || '高价值',
     }))
   } catch { /* ignore */ }
 }
 
-onMounted(loadPartTypes)
+async function loadContractOptions() {
+  try {
+    const res: any = await http.get('/dictionaries/options', { params: { category: 'contract_no' } })
+    contractOptions.value = res.data || []
+  } catch { /* ignore */ }
+}
+
+onMounted(() => {
+  loadPartTypes()
+  loadContractOptions()
+})
 
 function formatTime(t: string) {
   if (!t) return ''
@@ -279,13 +324,14 @@ async function handleSingleSubmit() {
 function resetSingleForm() {
   singleFormRef.value?.resetFields()
   singleForm.condition = '全新'
+  singleForm.contract_no = ''
 }
 
 // ======== 批量导入: 下载模板 ========
 function downloadTemplate() {
-  const headers = [['备件编号', '序列号', '子公司', '仓库', '成色']]
+  const headers = [['备件编号', '序列号', '子公司', '仓库', '成色', '采购合同号']]
   const ws = XLSX.utils.aoa_to_sheet(headers)
-  ws['!cols'] = [{ wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 10 }]
+  ws['!cols'] = [{ wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 10 }, { wch: 20 }]
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, '批量导入模板')
   XLSX.writeFile(wb, '批量导入模板.xlsx')
@@ -305,6 +351,8 @@ const COLUMN_MAP: Record<string, string> = {
   'warehouse': 'warehouse',
   '成色': 'condition',
   'condition': 'condition',
+  '采购合同号': 'contract_no',
+  'contract_no': 'contract_no',
 }
 
 function handleFileChange(file: UploadFile) {
@@ -347,9 +395,13 @@ function handleFileChange(file: UploadFile) {
         // Validate required fields
         const missing: string[] = []
         if (!mapped.part_no) missing.push('备件编号')
-        if (!mapped.serial_number) missing.push('序列号')
+        // 序列号仅在高价值备件中必填
+        const pt = partTypeOptions.value.find(p => p.part_no === mapped.part_no)
+        const ptIsHighValue = (pt?.value_type || '高价值') === '高价值'
+        if (ptIsHighValue && !mapped.serial_number) missing.push('序列号(高价值必填)')
         if (!mapped.subsidiary) missing.push('子公司')
         if (!mapped.warehouse) missing.push('仓库')
+        if (!mapped.contract_no) missing.push('采购合同号')
 
         if (missing.length > 0) {
           errors.push({ row: i + 2, message: `缺少: ${missing.join(', ')}` })

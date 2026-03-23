@@ -85,15 +85,19 @@ Page({
     // 构建审批项（含 SN 选择状态）
     const approveItems = (item.items || []).map(sub => {
       const sns = sub.serial_numbers || [];
+      const isLowValue = (sub.value_type === '低价值');
       const selectedMap = {};
       sns.forEach(sn => { selectedMap[sn] = true; });
       return {
         part_no: sub.part_no,
         part_name: sub.part_name,
+        value_type: sub.value_type || '高价值',
         quantity: sub.quantity,
         serial_numbers: sns,
-        selected_sns: [...sns],
-        selected_map: selectedMap,
+        selected_sns: isLowValue ? [] : [...sns],
+        selected_map: isLowValue ? {} : selectedMap,
+        approve_qty: sub.quantity, // 低价值备件按数量审批
+        isLowValue,
       };
     });
 
@@ -121,6 +125,9 @@ Page({
     // 切回全部批准时，重置所有选择为全选
     if (mode === 'full') {
       const approveItems = this.data.approveItems.map(item => {
+        if (item.isLowValue) {
+          return { ...item, approve_qty: item.quantity };
+        }
         const selectedMap = {};
         item.serial_numbers.forEach(sn => { selectedMap[sn] = true; });
         return { ...item, selected_sns: [...item.serial_numbers], selected_map: selectedMap };
@@ -162,6 +169,13 @@ Page({
     }
   },
 
+  // 低价值备件数量输入
+  onApproveQtyInput(e) {
+    const idx = e.currentTarget.dataset.itemIdx;
+    const val = Math.max(0, Math.min(Number(e.detail.value) || 0, this.data.approveItems[idx].quantity));
+    this.setData({ [`approveItems[${idx}].approve_qty`]: val });
+  },
+
   // 审批通过
   async onApprove() {
     const { approveMode, approveItems, currentRequest } = this.data;
@@ -170,15 +184,23 @@ Page({
     let partialItems = null;
 
     if (approveMode === 'partial') {
-      const selected = approveItems.filter(item => item.selected_sns.length > 0);
+      const selected = [];
+      for (const item of approveItems) {
+        if (item.isLowValue) {
+          if (item.approve_qty > 0) {
+            selected.push({ part_no: item.part_no, quantity: item.approve_qty });
+          }
+        } else {
+          if (item.selected_sns.length > 0) {
+            selected.push({ part_no: item.part_no, serial_numbers: item.selected_sns });
+          }
+        }
+      }
       if (selected.length === 0) {
-        wx.showToast({ title: '请至少选择一个序列号', icon: 'none' });
+        wx.showToast({ title: '请至少批准一项备件', icon: 'none' });
         return;
       }
-      partialItems = selected.map(item => ({
-        part_no: item.part_no,
-        serial_numbers: item.selected_sns,
-      }));
+      partialItems = selected;
     }
 
     const modeText = approveMode === 'full' ? '全部批准' : '部分批准';

@@ -9,7 +9,7 @@ const { notifyRequestSubmitted, notifyApprovalResult, checkAndNotifyStockAlert }
  */
 async function createRequest(req, res) {
   try {
-    const { items, project_location, remark } = req.body;
+    const { items, project_location, project_no, outbound_reason, remark } = req.body;
 
     const db = getDB();
     const now = new Date();
@@ -66,9 +66,23 @@ async function createRequest(req, res) {
       requestItems.push({
         part_no: item.part_no,
         part_name: partType.part_name,
+        value_type: partType.value_type || '高价值',
         quantity: item.quantity,
         serial_numbers: sns,
       });
+    }
+
+    // Validate outbound_reason
+    const validReasons = ['维修', '调用', '销售'];
+    if (!outbound_reason || !validReasons.includes(outbound_reason)) {
+      // Rollback any reservations
+      if (reservedSNs.length > 0) {
+        await db.collection('inventory').updateMany(
+          { serial_number: { $in: reservedSNs } },
+          { $set: { reserved_request_id: '' } }
+        );
+      }
+      return res.status(400).json({ code: 1, message: '出库原因必须为: 维修, 调用, 销售' });
     }
 
     // Create the request document
@@ -77,6 +91,8 @@ async function createRequest(req, res) {
       status: 'pending', // pending | approved | rejected | cancelled
       items: requestItems,
       project_location,
+      project_no,
+      outbound_reason,
       remark: remark || '',
       created_at: now,
       updated_at: now,
@@ -233,24 +249,40 @@ async function approveRequest(req, res) {
         const reqItem = request.items.find(i => i.part_no === pi.part_no);
         if (!reqItem) continue;
 
-        // Check that requested SNs are actually part of the reserved SNs for this request
-        const requestedSNs = new Set(pi.serial_numbers);
-        const validApproved = [];
-        const validReleased = [];
+        const isLowValue = (reqItem.value_type === '低价值');
 
-        for (const sn of reqItem.serial_numbers) {
-          if (requestedSNs.has(sn)) {
-            validApproved.push(sn);
-          } else {
-            validReleased.push(sn);
+        if (isLowValue && pi.quantity && !pi.serial_numbers) {
+          // 低价值备件：按数量审批，从预留的SN中取前N个
+          const approveCount = Math.min(pi.quantity, reqItem.serial_numbers.length);
+          const validApproved = reqItem.serial_numbers.slice(0, approveCount);
+          const validReleased = reqItem.serial_numbers.slice(approveCount);
+
+          approvedSNs.push(...validApproved);
+          releasedSNs.push(...validReleased);
+          outboundCount += validApproved.length;
+          if (validApproved.length > 0) {
+            stockDecrements[pi.part_no] = (stockDecrements[pi.part_no] || 0) + validApproved.length;
           }
-        }
+        } else {
+          // 高价值备件：按序列号审批
+          const requestedSNs = new Set(pi.serial_numbers || []);
+          const validApproved = [];
+          const validReleased = [];
 
-        approvedSNs.push(...validApproved);
-        releasedSNs.push(...validReleased);
-        outboundCount += validApproved.length;
-        if (validApproved.length > 0) {
-          stockDecrements[pi.part_no] = (stockDecrements[pi.part_no] || 0) + validApproved.length;
+          for (const sn of reqItem.serial_numbers) {
+            if (requestedSNs.has(sn)) {
+              validApproved.push(sn);
+            } else {
+              validReleased.push(sn);
+            }
+          }
+
+          approvedSNs.push(...validApproved);
+          releasedSNs.push(...validReleased);
+          outboundCount += validApproved.length;
+          if (validApproved.length > 0) {
+            stockDecrements[pi.part_no] = (stockDecrements[pi.part_no] || 0) + validApproved.length;
+          }
         }
       }
 
