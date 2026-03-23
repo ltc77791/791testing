@@ -18,7 +18,7 @@ async function createRequest(req, res) {
       return res.status(403).json({ code: 1, message: '无权限提交申请' });
     }
 
-    const { items, project_location, outbound_reason, remark } = req.body;
+    const { items, project_location, project_no, outbound_reason, remark } = req.body;
     const db = getDB();
     const now = new Date();
 
@@ -76,7 +76,7 @@ async function createRequest(req, res) {
 
     const requestDoc = {
       applicant: req.user.username, status: 'pending',
-      items: requestItems, project_location, outbound_reason, remark: remark || '',
+      items: requestItems, project_location, project_no, outbound_reason, remark: remark || '',
       created_at: now, updated_at: now,
       approved_by: null, approved_at: null, reject_reason: null,
     };

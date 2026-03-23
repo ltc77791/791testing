@@ -9,7 +9,7 @@ const { notifyRequestSubmitted, notifyApprovalResult, checkAndNotifyStockAlert }
  */
 async function createRequest(req, res) {
   try {
-    const { items, project_location, outbound_reason, remark } = req.body;
+    const { items, project_location, project_no, outbound_reason, remark } = req.body;
 
     const db = getDB();
     const now = new Date();
@@ -91,6 +91,7 @@ async function createRequest(req, res) {
       status: 'pending', // pending | approved | rejected | cancelled
       items: requestItems,
       project_location,
+      project_no,
       outbound_reason,
       remark: remark || '',
       created_at: now,

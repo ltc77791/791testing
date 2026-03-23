@@ -260,6 +260,16 @@ const logs = {
   },
 };
 
+// ── 字典模块 ──────────────────────────────────────────
+const dictionaries = {
+  async options(category) {
+    return request({
+      url: `/api/dictionaries/options?category=${encodeURIComponent(category)}`,
+      method: 'GET',
+    });
+  },
+};
+
 module.exports = {
   auth,
   inventory,
@@ -267,6 +277,7 @@ module.exports = {
   requests,
   analytics,
   logs,
+  dictionaries,
   // 导出工具方法供外部使用
   setToken,
   clearToken,

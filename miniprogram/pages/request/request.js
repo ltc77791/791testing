@@ -20,6 +20,8 @@ Page({
     // 创建表单
     partTypes: [],
     formItems: [{ part_no: '', quantity: 1 }],
+    projectNo: '',
+    projectOptions: [],
     projectLocation: '',
     outboundReason: '',
     reasonOptions: ['维修', '调用', '销售'],
@@ -54,8 +56,9 @@ Page({
       return;
     }
     this.setData({ tab });
-    if (tab === 'create' && this.data.partTypes.length === 0) {
-      this.loadPartTypes();
+    if (tab === 'create') {
+      if (this.data.partTypes.length === 0) this.loadPartTypes();
+      if (this.data.projectOptions.length === 0) this.loadProjectOptions();
     }
   },
 
@@ -108,6 +111,18 @@ Page({
   },
 
   // ── 创建申请 ──
+  async loadProjectOptions() {
+    const res = await api.dictionaries.options('project_no');
+    if (res.code === 0) {
+      this.setData({ projectOptions: res.data || [] });
+    }
+  },
+
+  onProjectSelect(e) {
+    const idx = e.detail.value;
+    this.setData({ projectNo: this.data.projectOptions[idx] });
+  },
+
   async loadPartTypes() {
     const res = await api.partTypes.list({ pageSize: 100 });
     if (res.code === 0) {
@@ -160,7 +175,12 @@ Page({
   },
 
   async onSubmit() {
-    const { formItems, projectLocation, outboundReason, remark } = this.data;
+    const { formItems, projectNo, projectLocation, outboundReason, remark } = this.data;
+
+    if (!projectNo) {
+      wx.showToast({ title: '请选择项目号', icon: 'none' });
+      return;
+    }
 
     if (!projectLocation) {
       wx.showToast({ title: '请填写项目地点', icon: 'none' });
@@ -190,6 +210,7 @@ Page({
     this.setData({ submitting: true });
     const res = await api.requests.create({
       items: items.map(i => ({ part_no: i.part_no, quantity: i.quantity })),
+      project_no: projectNo,
       project_location: projectLocation,
       outbound_reason: outboundReason,
       remark,
@@ -201,6 +222,7 @@ Page({
       this.setData({
         tab: 'list',
         formItems: [{ part_no: '', quantity: 1 }],
+        projectNo: '',
         projectLocation: '',
         outboundReason: '',
         remark: '',

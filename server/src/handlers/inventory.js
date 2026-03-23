@@ -77,7 +77,7 @@ async function listInventory(req, res) {
  */
 async function inbound(req, res) {
   try {
-    let { part_no, serial_number, subsidiary, warehouse, condition } = req.body;
+    let { part_no, serial_number, subsidiary, warehouse, condition, contract_no } = req.body;
     const cond = condition;
 
     const db = getDB();
@@ -115,6 +115,7 @@ async function inbound(req, res) {
       subsidiary,
       warehouse,
       condition: cond,
+      contract_no,
       status: 0, // 在库
       inbound_time: now,
       inbound_operator: req.user.username,
@@ -145,7 +146,7 @@ async function inbound(req, res) {
       category: 'Inbound',
       action_type: cond === '全新' ? '新品入库' : '利旧回流',
       operator: req.user.username,
-      details: `入库: ${part_no} ${snLog}, ${subsidiary}-${warehouse}, 成色:${cond}`,
+      details: `入库: ${part_no} ${snLog}, ${subsidiary}-${warehouse}, 成色:${cond}, 合同:${contract_no}`,
       created_at: now,
     });
 
@@ -360,6 +361,7 @@ async function batchImport(req, res) {
         subsidiary: item.subsidiary,
         warehouse: item.warehouse,
         condition: cond,
+        contract_no: item.contract_no,
         status: 0,
         inbound_time: now,
         inbound_operator: req.user.username,

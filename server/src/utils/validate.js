@@ -158,6 +158,10 @@ const schemas = {
       condition: validCondition.default('全新').messages({
         'any.only': '成色必须为: 全新, 利旧/返还',
       }),
+      contract_no: Joi.string().trim().max(100).required().messages({
+        'string.empty': '采购合同号不能为空',
+        'any.required': '采购合同号不能为空',
+      }),
     }),
 
     edit: Joi.object({
@@ -179,6 +183,7 @@ const schemas = {
           subsidiary: Joi.string().trim().required(),
           warehouse: Joi.string().trim().required(),
           condition: validCondition.default('全新'),
+          contract_no: Joi.string().trim().max(100).required(),
         })
       ).min(1).max(500).required().messages({
         'array.min': '导入数据不能为空',
@@ -209,6 +214,10 @@ const schemas = {
       project_location: Joi.string().trim().max(200).required().messages({
         'string.empty': '项目地点不能为空',
         'any.required': '项目地点不能为空',
+      }),
+      project_no: Joi.string().trim().max(100).required().messages({
+        'string.empty': '项目号不能为空',
+        'any.required': '项目号不能为空',
       }),
       outbound_reason: Joi.string().valid('维修', '调用', '销售').required().messages({
         'any.only': '出库原因必须为: 维修, 调用, 销售',
