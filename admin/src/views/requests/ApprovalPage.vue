@@ -44,6 +44,9 @@
         </template>
       </el-table-column>
       <el-table-column prop="project_location" label="项目地点" min-width="140" />
+      <el-table-column prop="outbound_reason" label="出库原因" width="100" align="center">
+        <template #default="{ row }">{{ row.outbound_reason || '-' }}</template>
+      </el-table-column>
       <el-table-column label="状态" width="100" align="center">
         <template #default="{ row }">
           <el-tag :type="statusTagType(row.status)" size="small">
@@ -88,6 +91,7 @@
           </el-tag>
         </el-descriptions-item>
         <el-descriptions-item label="项目地点">{{ detailData.project_location }}</el-descriptions-item>
+        <el-descriptions-item label="出库原因">{{ detailData.outbound_reason || '-' }}</el-descriptions-item>
         <el-descriptions-item label="申请时间">{{ formatTime(detailData.created_at) }}</el-descriptions-item>
         <el-descriptions-item label="审批人">{{ detailData.approved_by || '-' }}</el-descriptions-item>
         <el-descriptions-item label="审批时间">{{ detailData.approved_at ? formatTime(detailData.approved_at) : '-' }}</el-descriptions-item>
@@ -136,7 +140,7 @@
     <el-dialog v-model="approveVisible" title="审批通过" width="600px">
       <el-alert type="info" :closable="false" style="margin-bottom: 16px">
         <template #title>
-          申请人: {{ approveTarget?.applicant }} | 项目: {{ approveTarget?.project_location }}
+          申请人: {{ approveTarget?.applicant }} | 项目: {{ approveTarget?.project_location }} | 原因: {{ approveTarget?.outbound_reason || '-' }}
         </template>
       </el-alert>
 

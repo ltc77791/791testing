@@ -14,6 +14,14 @@
             <el-input v-model="form.project_location" placeholder="如 张江IDC扩容" />
           </el-form-item>
 
+          <el-form-item label="出库原因" prop="outbound_reason">
+            <el-select v-model="form.outbound_reason" placeholder="请选择出库原因" style="width: 100%">
+              <el-option label="维修" value="维修" />
+              <el-option label="项目" value="项目" />
+              <el-option label="销售" value="销售" />
+            </el-select>
+          </el-form-item>
+
           <!-- 动态申请明细 -->
           <el-form-item label="申请明细" required>
             <div
@@ -117,6 +125,9 @@
             </template>
           </el-table-column>
           <el-table-column prop="project_location" label="项目地点" min-width="140" />
+          <el-table-column prop="outbound_reason" label="出库原因" width="100" align="center">
+            <template #default="{ row }">{{ row.outbound_reason || '-' }}</template>
+          </el-table-column>
           <el-table-column label="状态" width="100" align="center">
             <template #default="{ row }">
               <el-tag :type="statusTagType(row.status)" size="small">
@@ -173,6 +184,7 @@
           </el-tag>
         </el-descriptions-item>
         <el-descriptions-item label="项目地点">{{ detailData.project_location }}</el-descriptions-item>
+        <el-descriptions-item label="出库原因">{{ detailData.outbound_reason || '-' }}</el-descriptions-item>
         <el-descriptions-item label="申请时间">{{ formatTime(detailData.created_at) }}</el-descriptions-item>
         <el-descriptions-item label="审批人">{{ detailData.approved_by || '-' }}</el-descriptions-item>
         <el-descriptions-item label="审批时间">{{ detailData.approved_at ? formatTime(detailData.approved_at) : '-' }}</el-descriptions-item>
@@ -262,11 +274,13 @@ const formRef = ref<FormInstance>()
 const submitting = ref(false)
 const form = reactive({
   project_location: '',
+  outbound_reason: '',
   remark: '',
   items: [{ part_no: '', quantity: 1 }] as { part_no: string; quantity: number }[],
 })
 const formRules = {
   project_location: [{ required: true, message: '请输入项目地点', trigger: 'blur' }],
+  outbound_reason: [{ required: true, message: '请选择出库原因', trigger: 'change' }],
 }
 
 function addItem() {
@@ -286,6 +300,7 @@ async function handleSubmit() {
     await http.post('/requests', {
       items: form.items.map(i => ({ part_no: i.part_no, quantity: i.quantity })),
       project_location: form.project_location,
+      outbound_reason: form.outbound_reason,
       remark: form.remark,
     })
     ElMessage.success('申请提交成功')
@@ -301,6 +316,7 @@ async function handleSubmit() {
 function resetForm() {
   formRef.value?.resetFields()
   form.items = [{ part_no: '', quantity: 1 }]
+  form.outbound_reason = ''
   form.remark = ''
 }
 

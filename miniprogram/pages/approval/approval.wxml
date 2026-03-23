@@ -24,7 +24,7 @@
         {{sub.part_name}} x {{sub.quantity}}
       </view>
     </view>
-    <view style="font-size: 24rpx; color: #999; margin-top: 8rpx;">项目: {{item.project_location}}</view>
+    <view style="font-size: 24rpx; color: #999; margin-top: 8rpx;">项目: {{item.project_location}} | 原因: {{item.outbound_reason || '-'}}</view>
   </view>
 
   <view wx:if="{{!loading && items.length === 0}}" class="empty">
@@ -44,6 +44,10 @@
       <view style="margin-bottom: 16rpx;">
         <text style="color: #999;">项目: </text>
         <text>{{currentRequest.project_location}}</text>
+      </view>
+      <view style="margin-bottom: 16rpx;">
+        <text style="color: #999;">出库原因: </text>
+        <text>{{currentRequest.outbound_reason || '-'}}</text>
       </view>
 
       <view style="margin-bottom: 16rpx;">

@@ -9,7 +9,7 @@ const { notifyRequestSubmitted, notifyApprovalResult, checkAndNotifyStockAlert }
  */
 async function createRequest(req, res) {
   try {
-    const { items, project_location, remark } = req.body;
+    const { items, project_location, outbound_reason, remark } = req.body;
 
     const db = getDB();
     const now = new Date();
@@ -72,12 +72,26 @@ async function createRequest(req, res) {
       });
     }
 
+    // Validate outbound_reason
+    const validReasons = ['维修', '项目', '销售'];
+    if (!outbound_reason || !validReasons.includes(outbound_reason)) {
+      // Rollback any reservations
+      if (reservedSNs.length > 0) {
+        await db.collection('inventory').updateMany(
+          { serial_number: { $in: reservedSNs } },
+          { $set: { reserved_request_id: '' } }
+        );
+      }
+      return res.status(400).json({ code: 1, message: '出库原因必须为: 维修, 项目, 销售' });
+    }
+
     // Create the request document
     const requestDoc = {
       applicant: req.user.username,
       status: 'pending', // pending | approved | rejected | cancelled
       items: requestItems,
       project_location,
+      outbound_reason,
       remark: remark || '',
       created_at: now,
       updated_at: now,

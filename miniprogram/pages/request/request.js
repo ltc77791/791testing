@@ -21,6 +21,8 @@ Page({
     partTypes: [],
     formItems: [{ part_no: '', quantity: 1 }],
     projectLocation: '',
+    outboundReason: '',
+    reasonOptions: ['维修', '项目', '销售'],
     remark: '',
     submitting: false,
   },
@@ -121,6 +123,11 @@ Page({
     this.setData({ projectLocation: e.detail.value });
   },
 
+  onReasonSelect(e) {
+    const idx = e.detail.value;
+    this.setData({ outboundReason: this.data.reasonOptions[idx] });
+  },
+
   onRemarkInput(e) {
     this.setData({ remark: e.detail.value });
   },
@@ -153,10 +160,15 @@ Page({
   },
 
   async onSubmit() {
-    const { formItems, projectLocation, remark } = this.data;
+    const { formItems, projectLocation, outboundReason, remark } = this.data;
 
     if (!projectLocation) {
       wx.showToast({ title: '请填写项目地点', icon: 'none' });
+      return;
+    }
+
+    if (!outboundReason) {
+      wx.showToast({ title: '请选择出库原因', icon: 'none' });
       return;
     }
 
@@ -179,6 +191,7 @@ Page({
     const res = await api.requests.create({
       items: items.map(i => ({ part_no: i.part_no, quantity: i.quantity })),
       project_location: projectLocation,
+      outbound_reason: outboundReason,
       remark,
     });
     this.setData({ submitting: false });
@@ -189,6 +202,7 @@ Page({
         tab: 'list',
         formItems: [{ part_no: '', quantity: 1 }],
         projectLocation: '',
+        outboundReason: '',
         remark: '',
       });
       this.loadList(true);
