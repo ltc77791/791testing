@@ -194,12 +194,22 @@
         <el-table-column prop="part_no" label="备件编号" min-width="130" />
         <el-table-column prop="part_name" label="备件名称" min-width="140" />
         <el-table-column prop="quantity" label="申请数量" width="100" align="center" />
+        <el-table-column label="价值类型" width="90" align="center">
+          <template #default="{ row }">
+            <el-tag :type="(row.value_type || '高价值') === '高价值' ? 'danger' : 'info'" size="small">
+              {{ row.value_type || '高价值' }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="预留序列号" min-width="200">
           <template #default="{ row }">
-            <span v-if="row.serial_numbers?.length">
-              {{ row.serial_numbers.join(', ') }}
-            </span>
-            <span v-else>-</span>
+            <template v-if="(row.value_type || '高价值') === '高价值'">
+              <span v-if="row.serial_numbers?.length">
+                {{ row.serial_numbers.join(', ') }}
+              </span>
+              <span v-else>-</span>
+            </template>
+            <span v-else style="color: #909399">低价值备件，无需序列号</span>
           </template>
         </el-table-column>
       </el-table>

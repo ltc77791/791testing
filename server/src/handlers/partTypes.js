@@ -45,7 +45,7 @@ async function listPartTypes(req, res) {
  */
 async function createPartType(req, res) {
   try {
-    const { part_no, part_name, min_stock } = req.body;
+    const { part_no, part_name, value_type, min_stock } = req.body;
 
     const db = getDB();
 
@@ -58,6 +58,7 @@ async function createPartType(req, res) {
     const doc = {
       part_no,
       part_name,
+      value_type: value_type || '高价值',
       min_stock: Number(min_stock) || 0,
       current_stock: 0,
       total_outbound: 0,
@@ -71,7 +72,7 @@ async function createPartType(req, res) {
       category: 'PartType',
       action_type: '新增备件类型',
       operator: req.user.username,
-      details: `新增备件类型: ${part_no} - ${part_name}, 安全库存: ${doc.min_stock}`,
+      details: `新增备件类型: ${part_no} - ${part_name}, 价值: ${doc.value_type}, 安全库存: ${doc.min_stock}`,
       created_at: new Date(),
     });
 
@@ -89,7 +90,7 @@ async function createPartType(req, res) {
 async function updatePartType(req, res) {
   try {
     const { part_no } = req.params;
-    const { part_name, min_stock } = req.body;
+    const { part_name, value_type, min_stock } = req.body;
 
     const db = getDB();
     const existing = await db.collection('part_types').findOne({ part_no });
@@ -103,6 +104,11 @@ async function updatePartType(req, res) {
     if (part_name !== undefined) {
       updateFields.part_name = part_name;
       changes.push(`名称: ${part_name}`);
+    }
+
+    if (value_type !== undefined) {
+      updateFields.value_type = value_type;
+      changes.push(`价值类型: ${value_type}`);
     }
 
     if (min_stock !== undefined) {
@@ -119,11 +125,14 @@ async function updatePartType(req, res) {
       { $set: updateFields }
     );
 
-    // If part_name changed, also update the denormalized field in inventory
-    if (part_name !== undefined) {
+    // Sync denormalized fields to inventory
+    const invSync = {};
+    if (part_name !== undefined) invSync.part_name = part_name;
+    if (value_type !== undefined) invSync.value_type = value_type;
+    if (Object.keys(invSync).length > 0) {
       await db.collection('inventory').updateMany(
         { part_no },
-        { $set: { part_name } }
+        { $set: invSync }
       );
     }
 

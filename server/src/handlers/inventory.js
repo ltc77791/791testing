@@ -1,6 +1,16 @@
 const { ObjectId } = require('mongodb');
+const crypto = require('crypto');
 const { getDB } = require('../db');
 const { checkAndNotifyStockAlert } = require('../utils/subscribe-message');
+
+/**
+ * 为低价值备件自动生成序列号
+ */
+function generateAutoSN() {
+  const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
+  const rand = crypto.randomBytes(3).toString('hex');
+  return `AUTO-${ts}-${rand}`;
+}
 
 /**
  * GET /api/inventory
@@ -55,7 +65,7 @@ async function listInventory(req, res) {
  */
 async function inbound(req, res) {
   try {
-    const { part_no, serial_number, subsidiary, warehouse, condition } = req.body;
+    let { part_no, serial_number, subsidiary, warehouse, condition } = req.body;
     const cond = condition;
 
     const db = getDB();
@@ -64,6 +74,18 @@ async function inbound(req, res) {
     const partType = await db.collection('part_types').findOne({ part_no });
     if (!partType) {
       return res.status(400).json({ code: 1, message: `备件类型 ${part_no} 不存在，请先创建` });
+    }
+
+    const isHighValue = (partType.value_type || '高价值') === '高价值';
+
+    // 高价值备件序列号必填
+    if (isHighValue && !serial_number) {
+      return res.status(400).json({ code: 1, message: '高价值备件序列号为必填项' });
+    }
+
+    // 低价值备件序列号非必填，自动生成
+    if (!serial_number) {
+      serial_number = generateAutoSN();
     }
 
     // Check duplicate serial_number
@@ -76,6 +98,7 @@ async function inbound(req, res) {
     const doc = {
       part_no,
       part_name: partType.part_name,
+      value_type: partType.value_type || '高价值',
       serial_number,
       subsidiary,
       warehouse,
@@ -105,11 +128,12 @@ async function inbound(req, res) {
     );
 
     // Log
+    const snLog = isHighValue ? `SN:${serial_number}` : `SN:${serial_number}(自动)`;
     await db.collection('sys_logs').insertOne({
       category: 'Inbound',
       action_type: cond === '全新' ? '新品入库' : '利旧回流',
       operator: req.user.username,
-      details: `入库: ${part_no} SN:${serial_number}, ${subsidiary}-${warehouse}, 成色:${cond}`,
+      details: `入库: ${part_no} ${snLog}, ${subsidiary}-${warehouse}, 成色:${cond}`,
       created_at: now,
     });
 
@@ -175,6 +199,7 @@ async function editInventory(req, res) {
       }
       updateFields.part_no = part_no;
       updateFields.part_name = newPartType.part_name;
+      updateFields.value_type = newPartType.value_type || '高价值';
       changes.push(`备件类型: ${record.part_no} → ${part_no}`);
 
       // Only adjust stock if the item is currently in stock
@@ -256,7 +281,7 @@ async function batchImport(req, res) {
       .toArray();
     const partTypeMap = new Map(partTypes.map(p => [p.part_no, p]));
 
-    // Pre-check existing serial numbers
+    // Pre-check existing serial numbers (only check user-provided ones)
     const sns = items.map(i => i.serial_number).filter(Boolean);
     const existingSNs = await db.collection('inventory')
       .find({ serial_number: { $in: sns } })
@@ -275,7 +300,7 @@ async function batchImport(req, res) {
       const item = items[i];
       const row = i + 1;
 
-      if (!item.part_no || !item.serial_number || !item.subsidiary || !item.warehouse) {
+      if (!item.part_no || !item.subsidiary || !item.warehouse) {
         results.failed++;
         results.errors.push({ row, message: '缺少必填字段' });
         continue;
@@ -288,9 +313,21 @@ async function batchImport(req, res) {
         continue;
       }
 
-      if (existingSNSet.has(item.serial_number) || batchSNSet.has(item.serial_number)) {
+      const isHighValue = (partType.value_type || '高价值') === '高价值';
+
+      // 高价值备件序列号必填
+      if (isHighValue && !item.serial_number) {
         results.failed++;
-        results.errors.push({ row, message: `序列号 ${item.serial_number} 重复` });
+        results.errors.push({ row, message: '高价值备件序列号为必填项' });
+        continue;
+      }
+
+      // 低价值备件无序列号时自动生成
+      const sn = item.serial_number || generateAutoSN();
+
+      if (existingSNSet.has(sn) || batchSNSet.has(sn)) {
+        results.failed++;
+        results.errors.push({ row, message: `序列号 ${sn} 重复` });
         continue;
       }
 
@@ -301,12 +338,13 @@ async function batchImport(req, res) {
         continue;
       }
 
-      batchSNSet.add(item.serial_number);
+      batchSNSet.add(sn);
 
       validDocs.push({
         part_no: item.part_no,
         part_name: partType.part_name,
-        serial_number: item.serial_number,
+        value_type: partType.value_type || '高价值',
+        serial_number: sn,
         subsidiary: item.subsidiary,
         warehouse: item.warehouse,
         condition: cond,

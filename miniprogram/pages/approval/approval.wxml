@@ -71,30 +71,45 @@
           </view>
         </view>
 
-        <!-- 部分批准：序列号选择 -->
+        <!-- 部分批准：序列号选择/数量输入 -->
         <block wx:if="{{approveMode === 'partial'}}">
           <view style="margin-bottom: 20rpx;">
             <view wx:for="{{approveItems}}" wx:key="part_no" wx:for-index="itemIdx" style="margin-bottom: 16rpx; padding: 16rpx; background: #f9f9f9; border-radius: 8rpx;">
               <view style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12rpx;">
                 <view style="font-size: 28rpx; font-weight: 600;">{{item.part_name}} ({{item.part_no}})</view>
-                <view style="font-size: 24rpx; color: #1890ff;" bindtap="onToggleAllSN" data-item-idx="{{itemIdx}}">
+                <!-- 高价值：全选/取消全选按钮 -->
+                <view wx:if="{{!item.isLowValue}}" style="font-size: 24rpx; color: #1890ff;" bindtap="onToggleAllSN" data-item-idx="{{itemIdx}}">
                   {{item.selected_sns.length === item.serial_numbers.length ? '取消全选' : '全选'}}
                 </view>
               </view>
-              <view style="font-size: 24rpx; color: #999; margin-bottom: 8rpx;">
-                已选 {{item.selected_sns.length}} / {{item.serial_numbers.length}}
-              </view>
-              <view style="display: flex; flex-wrap: wrap; gap: 8rpx;">
-                <view
-                  wx:for="{{item.serial_numbers}}"
-                  wx:for-item="sn"
-                  wx:key="*this"
-                  class="sn-chip {{item.selected_map[sn] ? 'sn-chip-selected' : ''}}"
-                  bindtap="onToggleSN"
-                  data-item-idx="{{itemIdx}}"
-                  data-sn="{{sn}}"
-                >{{sn}}</view>
-              </view>
+
+              <!-- 低价值备件：数量输入 -->
+              <block wx:if="{{item.isLowValue}}">
+                <view style="font-size: 24rpx; color: #999; margin-bottom: 8rpx;">低价值备件，按数量审批</view>
+                <view style="display: flex; align-items: center; gap: 12rpx;">
+                  <text style="font-size: 26rpx;">批准数量:</text>
+                  <input type="number" class="form-input" style="width: 160rpx; text-align: center;" value="{{item.approve_qty}}" bindinput="onApproveQtyInput" data-item-idx="{{itemIdx}}" />
+                  <text style="font-size: 24rpx; color: #999;"> / {{item.quantity}}</text>
+                </view>
+              </block>
+
+              <!-- 高价值备件：序列号选择 -->
+              <block wx:else>
+                <view style="font-size: 24rpx; color: #999; margin-bottom: 8rpx;">
+                  已选 {{item.selected_sns.length}} / {{item.serial_numbers.length}}
+                </view>
+                <view style="display: flex; flex-wrap: wrap; gap: 8rpx;">
+                  <view
+                    wx:for="{{item.serial_numbers}}"
+                    wx:for-item="sn"
+                    wx:key="*this"
+                    class="sn-chip {{item.selected_map[sn] ? 'sn-chip-selected' : ''}}"
+                    bindtap="onToggleSN"
+                    data-item-idx="{{itemIdx}}"
+                    data-sn="{{sn}}"
+                  >{{sn}}</view>
+                </view>
+              </block>
             </view>
           </view>
         </block>
@@ -102,7 +117,7 @@
         <!-- 全部批准提示 -->
         <block wx:if="{{approveMode === 'full'}}">
           <view style="padding: 16rpx; background: #f6ffed; border: 2rpx solid #b7eb8f; border-radius: 8rpx; margin-bottom: 20rpx; font-size: 26rpx; color: #52c41a;">
-            将批准全部预留序列号
+            将批准全部申请数量
           </view>
         </block>
 

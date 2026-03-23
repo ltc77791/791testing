@@ -109,10 +109,20 @@
         <el-table-column prop="part_no" label="备件编号" min-width="130" />
         <el-table-column prop="part_name" label="备件名称" min-width="140" />
         <el-table-column prop="quantity" label="申请数量" width="100" align="center" />
+        <el-table-column label="价值类型" width="90" align="center">
+          <template #default="{ row }">
+            <el-tag :type="(row.value_type || '高价值') === '高价值' ? 'danger' : 'info'" size="small">
+              {{ row.value_type || '高价值' }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="预留序列号" min-width="200">
           <template #default="{ row }">
-            <span v-if="row.serial_numbers?.length">{{ row.serial_numbers.join(', ') }}</span>
-            <span v-else>-</span>
+            <template v-if="(row.value_type || '高价值') === '高价值'">
+              <span v-if="row.serial_numbers?.length">{{ row.serial_numbers.join(', ') }}</span>
+              <span v-else>-</span>
+            </template>
+            <span v-else style="color: #909399">低价值备件，无需序列号</span>
           </template>
         </el-table-column>
       </el-table>
@@ -145,23 +155,43 @@
         <el-table-column prop="part_no" label="备件编号" min-width="130" />
         <el-table-column prop="part_name" label="备件名称" min-width="140" />
         <el-table-column prop="quantity" label="申请数量" width="100" align="center" />
-        <el-table-column label="批准备件序列号" min-width="200">
+        <el-table-column label="批准明细" min-width="200">
           <template #default="{ row }">
-            <el-select
-              v-model="row.approve_sns"
-              multiple
-              clearable
-              :placeholder="approveMode === 'full' ? '已全选所有预留序列号' : '请勾选批准的序列号'"
-              :disabled="approveMode === 'full'"
-              style="width: 100%"
-            >
-              <el-option
-                v-for="sn in row.reserved_sns"
-                :key="sn"
-                :label="sn"
-                :value="sn"
+            <!-- 高价值备件：序列号选择 -->
+            <template v-if="(row.value_type || '高价值') === '高价值'">
+              <el-select
+                v-model="row.approve_sns"
+                multiple
+                clearable
+                :placeholder="approveMode === 'full' ? '已全选所有预留序列号' : '请勾选批准的序列号'"
+                :disabled="approveMode === 'full'"
+                style="width: 100%"
+              >
+                <el-option
+                  v-for="sn in row.reserved_sns"
+                  :key="sn"
+                  :label="sn"
+                  :value="sn"
+                />
+              </el-select>
+            </template>
+            <!-- 低价值备件：数量输入 -->
+            <template v-else>
+              <div v-if="approveMode === 'full'" style="color: #67c23a">
+                全部批准 ({{ row.quantity }} 件)
+              </div>
+              <el-input-number
+                v-else
+                v-model="row.approve_qty"
+                :min="0"
+                :max="row.quantity"
+                controls-position="right"
+                style="width: 160px"
               />
-            </el-select>
+              <div style="font-size: 12px; color: #909399; margin-top: 2px">
+                低价值备件，按数量审批
+              </div>
+            </template>
           </template>
         </el-table-column>
       </el-table>
@@ -208,6 +238,7 @@ import http from '../../utils/http'
 interface RequestItem {
   part_no: string
   part_name?: string
+  value_type?: string
   quantity: number
   serial_numbers?: string[]
 }
@@ -215,6 +246,7 @@ interface RequestItem {
 interface ApproveItem extends RequestItem {
   reserved_sns: string[]
   approve_sns: string[]
+  approve_qty: number
 }
 
 interface RequestRecord {
@@ -316,6 +348,7 @@ function openApproveDialog(row: RequestRecord) {
     ...it,
     reserved_sns: it.serial_numbers || [],
     approve_sns: it.serial_numbers || [],
+    approve_qty: it.quantity,
   }))
   approveVisible.value = true
 }
@@ -327,11 +360,21 @@ async function handleApprove() {
   let body: any = {}
 
   if (approveMode.value === 'partial') {
-    const partialItems = approveItems.value
-      .filter(it => it.approve_sns.length > 0)
-      .map(it => ({ part_no: it.part_no, serial_numbers: it.approve_sns }))
+    const partialItems: any[] = []
+    for (const it of approveItems.value) {
+      const isLowValue = (it.value_type || '高价值') === '低价值'
+      if (isLowValue) {
+        if (it.approve_qty > 0) {
+          partialItems.push({ part_no: it.part_no, quantity: it.approve_qty })
+        }
+      } else {
+        if (it.approve_sns.length > 0) {
+          partialItems.push({ part_no: it.part_no, serial_numbers: it.approve_sns })
+        }
+      }
+    }
     if (partialItems.length === 0) {
-      ElMessage.warning('请至少勾选批准一个序列号')
+      ElMessage.warning('请至少批准一项备件')
       return
     }
     body = { partial_items: partialItems }

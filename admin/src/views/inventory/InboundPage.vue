@@ -26,7 +26,10 @@
             </el-select>
           </el-form-item>
           <el-form-item label="序列号" prop="serial_number">
-            <el-input v-model="singleForm.serial_number" placeholder="扫码或手动输入序列号" />
+            <el-input v-model="singleForm.serial_number" :placeholder="isHighValue ? '扫码或手动输入序列号' : '低价值备件可不填，系统自动生成'" />
+            <div v-if="!isHighValue && singleForm.part_no" style="font-size: 12px; color: #909399; margin-top: 2px">
+              低价值备件序列号非必填，留空将自动生成
+            </div>
           </el-form-item>
           <el-form-item label="子公司" prop="subsidiary">
             <el-input v-model="singleForm.subsidiary" placeholder="如 华东子公司" />
@@ -173,7 +176,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import type { FormInstance, UploadFile } from 'element-plus'
@@ -183,6 +186,7 @@ import http from '../../utils/http'
 interface PartTypeOption {
   part_no: string
   part_name: string
+  value_type: string
 }
 
 interface InventoryRecord {
@@ -222,13 +226,22 @@ const singleForm = reactive({
   warehouse: '',
   condition: '全新',
 })
-const singleRules = {
+const selectedPartType = computed(() =>
+  partTypeOptions.value.find(pt => pt.part_no === singleForm.part_no)
+)
+const isHighValue = computed(() =>
+  (selectedPartType.value?.value_type || '高价值') === '高价值'
+)
+
+const singleRules = computed(() => ({
   part_no: [{ required: true, message: '请选择备件类型', trigger: 'change' }],
-  serial_number: [{ required: true, message: '请输入序列号', trigger: 'blur' }],
+  serial_number: isHighValue.value
+    ? [{ required: true, message: '请输入序列号', trigger: 'blur' }]
+    : [],
   subsidiary: [{ required: true, message: '请输入子公司', trigger: 'blur' }],
   warehouse: [{ required: true, message: '请输入仓库', trigger: 'blur' }],
   condition: [{ required: true, message: '请选择成色', trigger: 'change' }],
-}
+}))
 
 // ======== 批量导入 ========
 const fileName = ref('')
@@ -250,6 +263,7 @@ async function loadPartTypes() {
     partTypeOptions.value = res.data.items.map((i: any) => ({
       part_no: i.part_no,
       part_name: i.part_name,
+      value_type: i.value_type || '高价值',
     }))
   } catch { /* ignore */ }
 }
@@ -347,7 +361,10 @@ function handleFileChange(file: UploadFile) {
         // Validate required fields
         const missing: string[] = []
         if (!mapped.part_no) missing.push('备件编号')
-        if (!mapped.serial_number) missing.push('序列号')
+        // 序列号仅在高价值备件中必填
+        const pt = partTypeOptions.value.find(p => p.part_no === mapped.part_no)
+        const ptIsHighValue = (pt?.value_type || '高价值') === '高价值'
+        if (ptIsHighValue && !mapped.serial_number) missing.push('序列号(高价值必填)')
         if (!mapped.subsidiary) missing.push('子公司')
         if (!mapped.warehouse) missing.push('仓库')
 

@@ -25,6 +25,7 @@ const validRoles = Joi.array()
     return value;
   });
 const validCondition = Joi.string().valid('全新', '利旧/返还');
+const validValueType = Joi.string().valid('高价值', '低价值');
 const objectIdPattern = /^[0-9a-fA-F]{24}$/;
 
 // ========== Schemas 按模块组织 ==========
@@ -104,6 +105,9 @@ const schemas = {
         'string.empty': '备件名称不能为空',
         'any.required': '备件名称不能为空',
       }),
+      value_type: validValueType.default('高价值').messages({
+        'any.only': '价值类型必须为: 高价值, 低价值',
+      }),
       min_stock: Joi.number().integer().min(0).default(0).messages({
         'number.min': '安全库存不能为负数',
       }),
@@ -111,6 +115,9 @@ const schemas = {
 
     update: Joi.object({
       part_name: Joi.string().trim().max(100),
+      value_type: validValueType.messages({
+        'any.only': '价值类型必须为: 高价值, 低价值',
+      }),
       min_stock: Joi.number().integer().min(0).messages({
         'number.min': '安全库存不能为负数',
       }),
@@ -137,9 +144,8 @@ const schemas = {
         'string.empty': '备件编号不能为空',
         'any.required': '备件编号不能为空',
       }),
-      serial_number: Joi.string().trim().required().messages({
+      serial_number: Joi.string().trim().allow('').optional().messages({
         'string.empty': '序列号不能为空',
-        'any.required': '序列号不能为空',
       }),
       subsidiary: Joi.string().trim().required().messages({
         'string.empty': '子公司不能为空',
@@ -169,7 +175,7 @@ const schemas = {
       items: Joi.array().items(
         Joi.object({
           part_no: Joi.string().trim().required(),
-          serial_number: Joi.string().trim().required(),
+          serial_number: Joi.string().trim().allow('').optional(),
           subsidiary: Joi.string().trim().required(),
           warehouse: Joi.string().trim().required(),
           condition: validCondition.default('全新'),
@@ -220,8 +226,9 @@ const schemas = {
       partial_items: Joi.array().items(
         Joi.object({
           part_no: Joi.string().trim().required(),
-          serial_numbers: Joi.array().items(Joi.string().trim()).min(1).required(),
-        })
+          serial_numbers: Joi.array().items(Joi.string().trim()).min(1),
+          quantity: Joi.number().integer().min(1),
+        }).or('serial_numbers', 'quantity')
       ).min(1),
     }),
 

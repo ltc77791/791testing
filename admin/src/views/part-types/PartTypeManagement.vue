@@ -23,6 +23,13 @@
     <el-table :data="tableData" v-loading="loading" border stripe>
       <el-table-column prop="part_no" label="备件编号" min-width="140" />
       <el-table-column prop="part_name" label="备件名称" min-width="160" />
+      <el-table-column label="价值类型" width="100" align="center">
+        <template #default="{ row }">
+          <el-tag :type="(row.value_type || '高价值') === '高价值' ? 'danger' : 'info'" size="small">
+            {{ row.value_type || '高价值' }}
+          </el-tag>
+        </template>
+      </el-table-column>
       <el-table-column prop="min_stock" label="安全库存" width="100" align="center" />
       <el-table-column prop="current_stock" label="当前库存" width="100" align="center">
         <template #default="{ row }">
@@ -79,6 +86,15 @@
         <el-form-item label="备件名称" prop="part_name">
           <el-input v-model="form.part_name" placeholder="如 500W电源模块" />
         </el-form-item>
+        <el-form-item label="价值类型" prop="value_type">
+          <el-radio-group v-model="form.value_type">
+            <el-radio value="高价值">高价值</el-radio>
+            <el-radio value="低价值">低价值</el-radio>
+          </el-radio-group>
+          <div style="font-size: 12px; color: #909399; margin-top: 4px">
+            高价值备件入库需要序列号，低价值备件序列号非必填
+          </div>
+        </el-form-item>
         <el-form-item label="安全库存" prop="min_stock">
           <el-input-number v-model="form.min_stock" :min="0" :max="99999" />
         </el-form-item>
@@ -104,6 +120,7 @@ interface PartType {
   _id: string
   part_no: string
   part_name: string
+  value_type: string
   min_stock: number
   current_stock: number
   total_outbound: number
@@ -125,6 +142,7 @@ const formRef = ref<FormInstance>()
 const form = reactive({
   part_no: '',
   part_name: '',
+  value_type: '高价值' as string,
   min_stock: 0,
 })
 
@@ -168,6 +186,7 @@ function openCreateDialog() {
   isEdit.value = false
   form.part_no = ''
   form.part_name = ''
+  form.value_type = '高价值'
   form.min_stock = 0
   dialogVisible.value = true
 }
@@ -177,6 +196,7 @@ function openEditDialog(row: PartType) {
   isEdit.value = true
   form.part_no = row.part_no
   form.part_name = row.part_name
+  form.value_type = row.value_type || '高价值'
   form.min_stock = row.min_stock
   dialogVisible.value = true
 }
@@ -191,6 +211,7 @@ async function handleSubmit() {
     if (isEdit.value) {
       await http.patch(`/part-types/${form.part_no}`, {
         part_name: form.part_name,
+        value_type: form.value_type,
         min_stock: form.min_stock,
       })
       ElMessage.success('备件类型更新成功')
@@ -198,6 +219,7 @@ async function handleSubmit() {
       await http.post('/part-types', {
         part_no: form.part_no,
         part_name: form.part_name,
+        value_type: form.value_type,
         min_stock: form.min_stock,
       })
       ElMessage.success('备件类型创建成功')
