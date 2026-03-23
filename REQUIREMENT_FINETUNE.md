@@ -12,6 +12,8 @@
 | 2 | 2026-03-23 | 出库申请 (全栈) | 出库申请新增必填项「出库原因」，下拉选择：维修/调用/销售 | 已完成 | `server/src/handlers/requests.js`, `server/src/utils/validate.js`, `admin/src/views/requests/RequestPage.vue`, `admin/src/views/requests/ApprovalPage.vue`, `miniprogram/pages/request/request.wxml`, `miniprogram/pages/request/request.js`, `miniprogram/pages/approval/approval.wxml`, `miniprogram/cloudfunctions/requests/handlers.js` |
 | 3 | 2026-03-23 | 出库原因选项 | 出库原因下拉选项「项目」改为「调用」 | 已完成 | `server/src/handlers/requests.js`, `server/src/utils/validate.js`, `admin/src/views/requests/RequestPage.vue`, `miniprogram/pages/request/request.js`, `miniprogram/cloudfunctions/requests/handlers.js` |
 | 4 | 2026-03-23 | 字典管理 (全栈) | 新增通用字典管理模块，支持「项目号」和「采购合同号」两个分类的增删改查及启用/停用 | 已完成 | `server/src/db.js`, `server/src/index.js`, `server/src/utils/validate.js`, `server/src/handlers/dictionaries.js`, `server/src/routes/dictionaries.js`, `admin/src/views/dictionaries/DictionaryManagement.vue`, `admin/src/router/index.ts`, `admin/src/components/AppLayout.vue` |
+| 5 | 2026-03-23 | 入库 (全栈) | 所有备件入库新增必选项「采购合同号」，从字典表下拉选择 | 已完成 | `server/src/utils/validate.js`, `server/src/handlers/inventory.js`, `admin/src/views/inventory/InboundPage.vue` |
+| 6 | 2026-03-23 | 出库申请 (全栈) | 出库申请新增必选项「项目号」，从字典表下拉选择 | 已完成 | `server/src/utils/validate.js`, `server/src/handlers/requests.js`, `admin/src/views/requests/RequestPage.vue`, `admin/src/views/requests/ApprovalPage.vue`, `miniprogram/utils/api.js`, `miniprogram/pages/request/request.js`, `miniprogram/pages/request/request.wxml`, `miniprogram/pages/approval/approval.wxml`, `miniprogram/cloudfunctions/requests/handlers.js` |
 
 ---
 
@@ -110,3 +112,52 @@ dictionaries {
 - 将来新增分类（如供应商名称等）只需在 `VALID_CATEGORIES` 中添加即可，前端 tab 同步新增
 - 停用的字典项不会出现在业务表单的下拉框中，但不影响已有关联数据的展示
 - 所有增删改操作均记录系统日志（category: `Dictionary`）
+
+---
+
+### 5. 入库新增必选项「采购合同号」（2026-03-23）
+
+**背景**：用户要求每个设备入库时记录采购合同号，便于追溯采购来源。合同号选项通过字典管理模块（变更 4）维护。
+
+**变更内容**：
+- 单件入库表单新增「采购合同号」必填下拉，选项从 `GET /api/dictionaries/options?category=contract_no` 获取
+- 批量导入 Excel 模板新增「采购合同号」列，解析时校验必填
+- `inventory` 集合新增 `contract_no` 字段
+- 扫码查询详情页面展示采购合同号
+- 入库日志记录合同号信息
+
+**技术实现**：
+- **后端**：`validate.js` 的 `inventory.inbound` 和 `inventory.batchImport` schema 均新增 `contract_no: Joi.string().trim().max(100).required()`
+- **后端**：`inventory.js` 的 `inbound` 和 `batchImport` handler 提取并存入 `contract_no`
+- **PC前端**：`InboundPage.vue` 单件入库表单新增下拉；批量导入模板/列映射/预览表格/校验均新增；扫码详情展示
+
+**影响范围**：
+- 新入库的备件必须选择采购合同号，否则无法入库
+- 已有库存数据的 `contract_no` 为空，扫码查询展示为 `-`
+- admin 需先在「字典管理 > 采购合同号」中维护合同号选项
+
+---
+
+### 6. 出库申请新增必选项「项目号」（2026-03-23）
+
+**背景**：用户要求出库申请时必须选择领用项目号，便于按项目追踪备件去向。项目号选项通过字典管理模块（变更 4）维护。
+
+**变更内容**：
+- 出库申请表单新增「项目号」必填下拉，选项从 `GET /api/dictionaries/options?category=project_no` 获取
+- `requests` 集合新增 `project_no` 字段
+- PC 申请页列表、详情弹窗展示项目号
+- PC 审批页列表、详情弹窗、审批弹窗展示项目号
+- 小程序申请页新增 picker 选择项目号；列表展示项目号
+- 小程序审批页列表和审批弹窗展示项目号
+
+**技术实现**：
+- **后端**：`validate.js` 的 `requests.create` schema 新增 `project_no: Joi.string().trim().max(100).required()`
+- **后端**：`requests.js` 的 `createRequest` handler 提取并存入 `project_no`
+- **PC前端**：`RequestPage.vue` 表单新增下拉、列表新增列、详情展示；`ApprovalPage.vue` 列表、详情、审批弹窗展示
+- **小程序**：`api.js` 新增 `dictionaries.options()` 接口；`request.js` 新增加载/选择/校验/提交逻辑；`request.wxml` 新增 picker；`approval.wxml` 列表和弹窗展示
+- **云函数**：`requests/handlers.js` 的 `createRequest` 同步接收并存储 `project_no`
+
+**影响范围**：
+- 新提交的出库申请必须选择项目号，否则无法提交
+- 已有申请数据的 `project_no` 为空，展示为 `-`
+- admin 需先在「字典管理 > 项目号」中维护项目号选项
