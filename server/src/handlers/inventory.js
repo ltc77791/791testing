@@ -1,15 +1,27 @@
 const { ObjectId } = require('mongodb');
-const crypto = require('crypto');
 const { getDB } = require('../db');
 const { checkAndNotifyStockAlert } = require('../utils/subscribe-message');
 
 /**
- * 为低价值备件自动生成序列号
+ * 为低价值备件自动生成序列号，格式: nucyyyymmdd0001
+ * 使用 MongoDB counters 集合保证每日递增且唯一
  */
-function generateAutoSN() {
-  const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
-  const rand = crypto.randomBytes(3).toString('hex');
-  return `AUTO-${ts}-${rand}`;
+async function generateAutoSN() {
+  const db = getDB();
+  const now = new Date();
+  const yyyy = now.getFullYear().toString();
+  const mm = (now.getMonth() + 1).toString().padStart(2, '0');
+  const dd = now.getDate().toString().padStart(2, '0');
+  const dateStr = `${yyyy}${mm}${dd}`;
+
+  const counterDoc = await db.collection('counters').findOneAndUpdate(
+    { _id: `sn_daily_${dateStr}` },
+    { $inc: { seq: 1 } },
+    { upsert: true, returnDocument: 'after' }
+  );
+
+  const seq = counterDoc.seq.toString().padStart(4, '0');
+  return `nuc${dateStr}${seq}`;
 }
 
 /**
@@ -85,7 +97,7 @@ async function inbound(req, res) {
 
     // 低价值备件序列号非必填，自动生成
     if (!serial_number) {
-      serial_number = generateAutoSN();
+      serial_number = await generateAutoSN();
     }
 
     // Check duplicate serial_number
@@ -323,7 +335,7 @@ async function batchImport(req, res) {
       }
 
       // 低价值备件无序列号时自动生成
-      const sn = item.serial_number || generateAutoSN();
+      const sn = item.serial_number || await generateAutoSN();
 
       if (existingSNSet.has(sn) || batchSNSet.has(sn)) {
         results.failed++;
