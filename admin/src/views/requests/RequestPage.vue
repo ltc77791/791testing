@@ -17,7 +17,7 @@
           <el-form-item label="出库原因" prop="outbound_reason">
             <el-select v-model="form.outbound_reason" placeholder="请选择出库原因" style="width: 100%">
               <el-option label="维修" value="维修" />
-              <el-option label="项目" value="项目" />
+              <el-option label="调用" value="调用" />
               <el-option label="销售" value="销售" />
             </el-select>
           </el-form-item>

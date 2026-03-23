@@ -23,9 +23,9 @@ async function createRequest(req, res) {
     const now = new Date();
 
     // Validate outbound_reason
-    const validReasons = ['维修', '项目', '销售'];
+    const validReasons = ['维修', '调用', '销售'];
     if (!outbound_reason || !validReasons.includes(outbound_reason)) {
-      return res.status(400).json({ code: 1, message: '出库原因必须为: 维修, 项目, 销售' });
+      return res.status(400).json({ code: 1, message: '出库原因必须为: 维修, 调用, 销售' });
     }
 
     const reservedSNs = [];

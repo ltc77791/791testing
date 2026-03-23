@@ -210,8 +210,8 @@ const schemas = {
         'string.empty': '项目地点不能为空',
         'any.required': '项目地点不能为空',
       }),
-      outbound_reason: Joi.string().valid('维修', '项目', '销售').required().messages({
-        'any.only': '出库原因必须为: 维修, 项目, 销售',
+      outbound_reason: Joi.string().valid('维修', '调用', '销售').required().messages({
+        'any.only': '出库原因必须为: 维修, 调用, 销售',
         'string.empty': '出库原因不能为空',
         'any.required': '出库原因不能为空',
       }),

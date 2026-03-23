@@ -73,7 +73,7 @@ async function createRequest(req, res) {
     }
 
     // Validate outbound_reason
-    const validReasons = ['维修', '项目', '销售'];
+    const validReasons = ['维修', '调用', '销售'];
     if (!outbound_reason || !validReasons.includes(outbound_reason)) {
       // Rollback any reservations
       if (reservedSNs.length > 0) {
@@ -82,7 +82,7 @@ async function createRequest(req, res) {
           { $set: { reserved_request_id: '' } }
         );
       }
-      return res.status(400).json({ code: 1, message: '出库原因必须为: 维修, 项目, 销售' });
+      return res.status(400).json({ code: 1, message: '出库原因必须为: 维修, 调用, 销售' });
     }
 
     // Create the request document

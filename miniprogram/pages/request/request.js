@@ -22,7 +22,7 @@ Page({
     formItems: [{ part_no: '', quantity: 1 }],
     projectLocation: '',
     outboundReason: '',
-    reasonOptions: ['维修', '项目', '销售'],
+    reasonOptions: ['维修', '调用', '销售'],
     remark: '',
     submitting: false,
   },
