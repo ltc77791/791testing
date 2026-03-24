@@ -228,4 +228,74 @@ async function deletePartType(req, res) {
   }
 }
 
-module.exports = { listPartTypes, createPartType, updatePartType, deletePartType };
+/**
+ * POST /api/part-types/batch-import
+ * Body: { items: [{ part_no, part_name, value_type?, model?, unit_price?, min_stock? }] }
+ */
+async function batchImportPartTypes(req, res) {
+  try {
+    const { items } = req.body;
+    const db = getDB();
+
+    let success = 0;
+    let failed = 0;
+    const errors = [];
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const rowNum = i + 1;
+
+      try {
+        // 高价值备件型号必填
+        const valueType = item.value_type || '高价值';
+        if (valueType === '高价值' && (!item.model || !item.model.trim())) {
+          errors.push({ row: rowNum, message: `备件编号 ${item.part_no}: 高价值备件型号为必填项` });
+          failed++;
+          continue;
+        }
+
+        // Check duplicate
+        const existing = await db.collection('part_types').findOne({ part_no: item.part_no });
+        if (existing) {
+          errors.push({ row: rowNum, message: `备件编号 ${item.part_no} 已存在，跳过` });
+          failed++;
+          continue;
+        }
+
+        const doc = {
+          part_no: item.part_no,
+          part_name: item.part_name,
+          value_type: valueType,
+          model: item.model || '',
+          unit_price: (item.unit_price !== null && item.unit_price !== undefined && item.unit_price !== '') ? Number(item.unit_price) : null,
+          min_stock: Number(item.min_stock) || 0,
+          current_stock: 0,
+          total_outbound: 0,
+          updated_at: new Date(),
+        };
+
+        await db.collection('part_types').insertOne(doc);
+        success++;
+      } catch (err) {
+        errors.push({ row: rowNum, message: `备件编号 ${item.part_no}: ${err.message}` });
+        failed++;
+      }
+    }
+
+    // Log
+    await db.collection('sys_logs').insertOne({
+      category: 'PartType',
+      action_type: '批量导入备件类型',
+      operator: req.user.username,
+      details: `批量导入备件类型: 成功 ${success} 条, 失败 ${failed} 条`,
+      created_at: new Date(),
+    });
+
+    res.json({ code: 0, data: { success, failed, errors } });
+  } catch (err) {
+    console.error('Batch import part types error:', err);
+    res.status(500).json({ code: 1, message: '服务器错误' });
+  }
+}
+
+module.exports = { listPartTypes, createPartType, updatePartType, deletePartType, batchImportPartTypes };

@@ -144,6 +144,23 @@ const schemas = {
     }).min(1).messages({
       'object.min': '没有需要更新的字段',
     }),
+
+    batchImport: Joi.object({
+      items: Joi.array().items(
+        Joi.object({
+          part_no: Joi.string().trim().max(50).required(),
+          part_name: Joi.string().trim().max(100).required(),
+          value_type: validValueType.default('高价值'),
+          model: Joi.string().trim().max(100).allow('').default(''),
+          unit_price: Joi.number().min(0).allow(null, '').default(null),
+          min_stock: Joi.number().integer().min(0).default(0),
+        })
+      ).min(1).max(500).required().messages({
+        'array.min': '导入数据不能为空',
+        'array.max': '单次导入不能超过500条',
+        'any.required': '导入数据不能为空',
+      }),
+    }),
   },
 
   // --- 库存 ---

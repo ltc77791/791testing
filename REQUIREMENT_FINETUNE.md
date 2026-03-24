@@ -15,6 +15,7 @@
 | 5 | 2026-03-23 | 入库 (全栈) | 所有备件入库新增必选项「采购合同号」，从字典表下拉选择 | 已完成 | `server/src/utils/validate.js`, `server/src/handlers/inventory.js`, `admin/src/views/inventory/InboundPage.vue` |
 | 6 | 2026-03-23 | 出库申请 (全栈) | 出库申请新增必选项「项目号」，从字典表下拉选择 | 已完成 | `server/src/utils/validate.js`, `server/src/handlers/requests.js`, `admin/src/views/requests/RequestPage.vue`, `admin/src/views/requests/ApprovalPage.vue`, `miniprogram/utils/api.js`, `miniprogram/pages/request/request.js`, `miniprogram/pages/request/request.wxml`, `miniprogram/pages/approval/approval.wxml`, `miniprogram/cloudfunctions/requests/handlers.js` |
 | 7 | 2026-03-24 | 备件类型 (全栈) | 备件类型新增「型号」和「单价」字段；高价值备件型号为必填，单价为选填 | 已完成 | `server/src/utils/validate.js`, `server/src/handlers/partTypes.js`, `admin/src/views/part-types/PartTypeManagement.vue` |
+| 8 | 2026-03-24 | 备件类型 (全栈) | 备件类型管理新增批量导入功能，支持 Excel/CSV 模板下载、解析预览、批量创建 | 已完成 | `server/src/utils/validate.js`, `server/src/handlers/partTypes.js`, `server/src/routes/partTypes.js`, `admin/src/views/part-types/PartTypeManagement.vue` |
 
 ---
 
@@ -200,3 +201,30 @@ part_types {
 - 新建高价值备件类型时必须填写型号，否则无法创建
 - 已有备件类型数据的 `model` 为空，列表展示为 `-`；`unit_price` 为 null，展示为 `-`
 - 编辑已有高价值备件类型时，如果型号为空，需要补填才能保存
+
+---
+
+### 8. 备件类型批量导入功能（2026-03-24）
+
+**背景**：参考入库页面的批量导入功能，为备件类型管理也提供批量导入能力，方便初始化大量备件类型数据。
+
+**变更内容**：
+- PC 管理后台「备件类型管理」页面改为 Tab 布局：「备件类型列表」和「批量导入」两个标签
+- 批量导入标签页功能：
+  - 下载 Excel 导入模板（含表头和示例数据行）
+  - 选择 Excel/CSV 文件，前端解析并预览
+  - 前端校验：必填字段（备件编号、备件名称）、高价值备件型号必填、价值类型有效性、单价和安全库存数值格式
+  - 确认导入后调用后端批量创建接口
+  - 导入结果展示（成功/失败条数及错误详情）
+- 模板列：备件编号、备件名称、价值类型、型号、单价、安全库存
+
+**技术实现**：
+- **后端校验**：`validate.js` 新增 `partTypes.batchImport` schema，items 数组每项包含 part_no(必填)、part_name(必填)、value_type(默认高价值)、model、unit_price、min_stock，单次最多 500 条
+- **后端 handler**：`partTypes.js` 新增 `batchImportPartTypes`，逐条校验（高价值型号必填、part_no 唯一性），跳过重复编号，记录成功/失败数和错误详情，写入系统日志
+- **后端路由**：`routes/partTypes.js` 新增 `POST /batch-import` 路由（admin/manager）
+- **PC前端**：`PartTypeManagement.vue` 改为 `el-tabs` 布局；新增批量导入标签页，使用 `xlsx` 库解析文件，列名映射支持中英文，前端预校验后提交
+
+**API 端点**：
+| Method | Path | 权限 | 说明 |
+|--------|------|------|------|
+| POST | /api/part-types/batch-import | admin/manager | 批量导入备件类型（≤500条） |
