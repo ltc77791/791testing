@@ -30,6 +30,16 @@
           </el-tag>
         </template>
       </el-table-column>
+      <el-table-column prop="model" label="型号" min-width="120">
+        <template #default="{ row }">
+          {{ row.model || '-' }}
+        </template>
+      </el-table-column>
+      <el-table-column label="单价" width="100" align="center">
+        <template #default="{ row }">
+          {{ row.unit_price != null ? row.unit_price : '-' }}
+        </template>
+      </el-table-column>
       <el-table-column prop="min_stock" label="安全库存" width="100" align="center" />
       <el-table-column prop="current_stock" label="当前库存" width="100" align="center">
         <template #default="{ row }">
@@ -95,6 +105,15 @@
             高价值备件入库需要序列号，低价值备件序列号非必填
           </div>
         </el-form-item>
+        <el-form-item label="型号" prop="model">
+          <el-input v-model="form.model" placeholder="如 NUC11PAHi7" />
+          <div v-if="form.value_type === '高价值'" style="font-size: 12px; color: #e6a23c; margin-top: 4px">
+            高价值备件型号为必填项
+          </div>
+        </el-form-item>
+        <el-form-item label="单价" prop="unit_price">
+          <el-input-number v-model="form.unit_price" :min="0" :max="99999999" :precision="2" :controls="false" placeholder="选填" style="width: 200px" />
+        </el-form-item>
         <el-form-item label="安全库存" prop="min_stock">
           <el-input-number v-model="form.min_stock" :min="0" :max="99999" />
         </el-form-item>
@@ -110,7 +129,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Search } from '@element-plus/icons-vue'
 import type { FormInstance } from 'element-plus'
@@ -121,6 +140,8 @@ interface PartType {
   part_no: string
   part_name: string
   value_type: string
+  model: string
+  unit_price: number | null
   min_stock: number
   current_stock: number
   total_outbound: number
@@ -143,13 +164,31 @@ const form = reactive({
   part_no: '',
   part_name: '',
   value_type: '高价值' as string,
+  model: '',
+  unit_price: null as number | null,
   min_stock: 0,
 })
+
+const modelValidator = (_rule: any, value: string, callback: (err?: Error) => void) => {
+  if (form.value_type === '高价值' && (!value || !value.trim())) {
+    callback(new Error('高价值备件型号为必填项'))
+  } else {
+    callback()
+  }
+}
 
 const formRules = {
   part_no: [{ required: true, message: '请输入备件编号', trigger: 'blur' }],
   part_name: [{ required: true, message: '请输入备件名称', trigger: 'blur' }],
+  model: [{ validator: modelValidator, trigger: 'blur' }],
 }
+
+// 价值类型变化时重新校验型号
+watch(() => form.value_type, () => {
+  if (dialogVisible.value) {
+    formRef.value?.validateField('model').catch(() => {})
+  }
+})
 
 function formatTime(t: string) {
   if (!t) return ''
@@ -187,6 +226,8 @@ function openCreateDialog() {
   form.part_no = ''
   form.part_name = ''
   form.value_type = '高价值'
+  form.model = ''
+  form.unit_price = null
   form.min_stock = 0
   dialogVisible.value = true
 }
@@ -197,6 +238,8 @@ function openEditDialog(row: PartType) {
   form.part_no = row.part_no
   form.part_name = row.part_name
   form.value_type = row.value_type || '高价值'
+  form.model = row.model || ''
+  form.unit_price = row.unit_price ?? null
   form.min_stock = row.min_stock
   dialogVisible.value = true
 }
@@ -212,6 +255,8 @@ async function handleSubmit() {
       await http.patch(`/part-types/${form.part_no}`, {
         part_name: form.part_name,
         value_type: form.value_type,
+        model: form.model,
+        unit_price: form.unit_price,
         min_stock: form.min_stock,
       })
       ElMessage.success('备件类型更新成功')
@@ -220,6 +265,8 @@ async function handleSubmit() {
         part_no: form.part_no,
         part_name: form.part_name,
         value_type: form.value_type,
+        model: form.model,
+        unit_price: form.unit_price,
         min_stock: form.min_stock,
       })
       ElMessage.success('备件类型创建成功')

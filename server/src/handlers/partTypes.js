@@ -45,7 +45,7 @@ async function listPartTypes(req, res) {
  */
 async function createPartType(req, res) {
   try {
-    const { part_no, part_name, value_type, min_stock } = req.body;
+    const { part_no, part_name, value_type, model, unit_price, min_stock } = req.body;
 
     const db = getDB();
 
@@ -59,6 +59,8 @@ async function createPartType(req, res) {
       part_no,
       part_name,
       value_type: value_type || '高价值',
+      model: model || '',
+      unit_price: (unit_price !== null && unit_price !== undefined && unit_price !== '') ? Number(unit_price) : null,
       min_stock: Number(min_stock) || 0,
       current_stock: 0,
       total_outbound: 0,
@@ -68,11 +70,15 @@ async function createPartType(req, res) {
     await db.collection('part_types').insertOne(doc);
 
     // Log
+    const logParts = [`新增备件类型: ${part_no} - ${part_name}, 价值: ${doc.value_type}`];
+    if (doc.model) logParts.push(`型号: ${doc.model}`);
+    if (doc.unit_price !== null) logParts.push(`单价: ${doc.unit_price}`);
+    logParts.push(`安全库存: ${doc.min_stock}`);
     await db.collection('sys_logs').insertOne({
       category: 'PartType',
       action_type: '新增备件类型',
       operator: req.user.username,
-      details: `新增备件类型: ${part_no} - ${part_name}, 价值: ${doc.value_type}, 安全库存: ${doc.min_stock}`,
+      details: logParts.join(', '),
       created_at: new Date(),
     });
 
@@ -90,12 +96,19 @@ async function createPartType(req, res) {
 async function updatePartType(req, res) {
   try {
     const { part_no } = req.params;
-    const { part_name, value_type, min_stock } = req.body;
+    const { part_name, value_type, model, unit_price, min_stock } = req.body;
 
     const db = getDB();
     const existing = await db.collection('part_types').findOne({ part_no });
     if (!existing) {
       return res.status(404).json({ code: 1, message: '备件类型不存在' });
+    }
+
+    // 交叉校验：编辑时若 value_type 变为高价值（或保持高价值），型号必填
+    const effectiveValueType = value_type !== undefined ? value_type : existing.value_type;
+    const effectiveModel = model !== undefined ? model : (existing.model || '');
+    if (effectiveValueType === '高价值' && (!effectiveModel || !effectiveModel.trim())) {
+      return res.status(400).json({ code: 1, message: '高价值备件的型号为必填项' });
     }
 
     const updateFields = { updated_at: new Date() };
@@ -109,6 +122,16 @@ async function updatePartType(req, res) {
     if (value_type !== undefined) {
       updateFields.value_type = value_type;
       changes.push(`价值类型: ${value_type}`);
+    }
+
+    if (model !== undefined) {
+      updateFields.model = model;
+      changes.push(`型号: ${model || '(清空)'}`);
+    }
+
+    if (unit_price !== undefined) {
+      updateFields.unit_price = (unit_price !== null && unit_price !== '') ? Number(unit_price) : null;
+      changes.push(`单价: ${updateFields.unit_price !== null ? updateFields.unit_price : '(清空)'}`);
     }
 
     if (min_stock !== undefined) {

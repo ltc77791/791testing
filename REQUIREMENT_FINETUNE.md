@@ -14,6 +14,7 @@
 | 4 | 2026-03-23 | 字典管理 (全栈) | 新增通用字典管理模块，支持「项目号」和「采购合同号」两个分类的增删改查及启用/停用 | 已完成 | `server/src/db.js`, `server/src/index.js`, `server/src/utils/validate.js`, `server/src/handlers/dictionaries.js`, `server/src/routes/dictionaries.js`, `admin/src/views/dictionaries/DictionaryManagement.vue`, `admin/src/router/index.ts`, `admin/src/components/AppLayout.vue` |
 | 5 | 2026-03-23 | 入库 (全栈) | 所有备件入库新增必选项「采购合同号」，从字典表下拉选择 | 已完成 | `server/src/utils/validate.js`, `server/src/handlers/inventory.js`, `admin/src/views/inventory/InboundPage.vue` |
 | 6 | 2026-03-23 | 出库申请 (全栈) | 出库申请新增必选项「项目号」，从字典表下拉选择 | 已完成 | `server/src/utils/validate.js`, `server/src/handlers/requests.js`, `admin/src/views/requests/RequestPage.vue`, `admin/src/views/requests/ApprovalPage.vue`, `miniprogram/utils/api.js`, `miniprogram/pages/request/request.js`, `miniprogram/pages/request/request.wxml`, `miniprogram/pages/approval/approval.wxml`, `miniprogram/cloudfunctions/requests/handlers.js` |
+| 7 | 2026-03-24 | 备件类型 (全栈) | 备件类型新增「型号」和「单价」字段；高价值备件型号为必填，单价为选填 | 已完成 | `server/src/utils/validate.js`, `server/src/handlers/partTypes.js`, `admin/src/views/part-types/PartTypeManagement.vue` |
 
 ---
 
@@ -161,3 +162,41 @@ dictionaries {
 - 新提交的出库申请必须选择项目号，否则无法提交
 - 已有申请数据的 `project_no` 为空，展示为 `-`
 - admin 需先在「字典管理 > 项目号」中维护项目号选项
+
+---
+
+### 7. 备件类型新增「型号」和「单价」字段（2026-03-24）
+
+**背景**：用户反馈需要在备件类型中记录型号和单价信息，便于资产管理和成本统计。高价值备件的型号为必填项。
+
+**变更内容**：
+- `part_types` 集合新增 `model`（型号）和 `unit_price`（单价）字段
+- 新增备件类型时：
+  - 若价值类型为「高价值」，型号为必填项
+  - 若价值类型为「低价值」，型号为选填项
+  - 单价始终为选填项
+- 编辑备件类型时同理：若价值类型为或改为「高价值」，则型号必须填写
+- PC 管理后台备件类型列表新增「型号」和「单价」列
+- 新增/编辑弹窗新增「型号」和「单价」表单项
+- 切换价值类型时自动重新校验型号字段
+
+**技术实现**：
+- **后端校验**：`validate.js` 的 `partTypes.create` schema 新增 `model: Joi.string().trim().max(100).allow('').default('')` 和 `unit_price: Joi.number().min(0).allow(null, '').default(null)`，并通过 `.custom()` 实现高价值备件型号必填的交叉校验
+- **后端校验**：`partTypes.update` schema 同步新增两个字段
+- **后端 handler**：`partTypes.js` 的 `createPartType` 和 `updatePartType` 提取并存入新字段；`updatePartType` 额外增加编辑时的交叉校验（考虑已有数据和本次修改的组合）
+- **后端日志**：新增/编辑操作日志包含型号和单价信息
+- **PC前端**：`PartTypeManagement.vue` 表格新增两列；表单新增两个输入项；自定义校验器 `modelValidator` 根据 `value_type` 动态校验型号必填；`watch` 监听 `value_type` 变化时重新触发型号校验
+
+**数据模型变更**：
+```
+part_types {
+  ...existing fields,
+  model: string,          // 型号，高价值必填
+  unit_price: number|null // 单价，选填
+}
+```
+
+**影响范围**：
+- 新建高价值备件类型时必须填写型号，否则无法创建
+- 已有备件类型数据的 `model` 为空，列表展示为 `-`；`unit_price` 为 null，展示为 `-`
+- 编辑已有高价值备件类型时，如果型号为空，需要补填才能保存
