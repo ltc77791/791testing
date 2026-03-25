@@ -16,6 +16,7 @@
 | 6 | 2026-03-23 | 出库申请 (全栈) | 出库申请新增必选项「项目号」，从字典表下拉选择 | 已完成 | `server/src/utils/validate.js`, `server/src/handlers/requests.js`, `admin/src/views/requests/RequestPage.vue`, `admin/src/views/requests/ApprovalPage.vue`, `miniprogram/utils/api.js`, `miniprogram/pages/request/request.js`, `miniprogram/pages/request/request.wxml`, `miniprogram/pages/approval/approval.wxml`, `miniprogram/cloudfunctions/requests/handlers.js` |
 | 7 | 2026-03-24 | 备件类型 (全栈) | 备件类型新增「型号」和「单价」字段；高价值备件型号为必填，单价为选填 | 已完成 | `server/src/utils/validate.js`, `server/src/handlers/partTypes.js`, `admin/src/views/part-types/PartTypeManagement.vue` |
 | 8 | 2026-03-24 | 备件类型 (全栈) | 备件类型管理新增批量导入功能，支持 Excel/CSV 模板下载、解析预览、批量创建 | 已完成 | `server/src/utils/validate.js`, `server/src/handlers/partTypes.js`, `server/src/routes/partTypes.js`, `admin/src/views/part-types/PartTypeManagement.vue` |
+| 9 | 2026-03-25 | 申请/审批显示优化 (PC端) | 重构网页端申请结果和审批管理的列表/详情展示，按备件项逐行展示12个字段，支持部分审批数量显示 | 已完成 | `server/src/handlers/requests.js`, `admin/src/views/requests/ApprovalPage.vue`, `admin/src/views/requests/RequestPage.vue` |
 
 ---
 
@@ -228,3 +229,47 @@ part_types {
 | Method | Path | 权限 | 说明 |
 |--------|------|------|------|
 | POST | /api/part-types/batch-import | admin/manager | 批量导入备件类型（≤500条） |
+
+---
+
+### 9. 申请/审批显示优化 — PC端（2026-03-25）
+
+**背景**：原有的申请列表只显示简略的申请明细（如 "MOUSE x3"），部分审批时无法看出实际批准了多少件。用户要求重构显示，按备件项逐行展示完整的 12 个字段。
+
+**变更内容**：
+
+**后端 (`requests.js`)**：
+- 审批通过时，在 request 文档中新增 `approved_items` 数组和 `approval_type` 字段
+- `approved_items` 每项包含：`part_no`, `part_name`, `value_type`, `quantity`(申请数量), `serial_numbers`(预留SN), `approved_quantity`(审批数量), `approved_serial_numbers`(审批SN)
+- `approval_type`: `'full'`（全量通过）或 `'partial'`（部分通过），根据是否每项的 approved_quantity === quantity 自动判定
+
+**PC 审批管理页 (`ApprovalPage.vue`)**：
+- 列表改为按备件项逐行展示，同一申请的请求级字段通过 `span-method` 合并单元格
+- 12 列：申请时间、项目号、申请人、出库原因、备件编号、备件名称、序列号、申请数量、审批时间、审批人、审批结果（全量通过/部分通过/已驳回/待审批）、审批数量
+- 详情弹窗增加审批数量和审批序列号列
+- 审批结果标签颜色区分：全量通过(绿)、部分通过(橙)、已驳回(红)、待审批(黄)
+
+**PC 我的申请页 (`RequestPage.vue`)**：
+- "我的申请" 列表同样改为按备件项逐行展示
+- 11 列（无申请人列）：申请时间、项目号、出库原因、备件编号、备件名称、序列号、申请数量、审批时间、审批人、审批结果、审批数量
+- 详情弹窗同步增加审批数量和审批序列号
+
+**数据模型变更**：
+```
+requests {
+  ...existing fields,
+  approval_type: 'full' | 'partial',   // 审批通过时写入
+  approved_items: [{                     // 审批通过时写入
+    part_no, part_name, value_type,
+    quantity,                            // 申请数量
+    serial_numbers,                      // 预留序列号
+    approved_quantity,                   // 审批数量
+    approved_serial_numbers              // 审批序列号
+  }]
+}
+```
+
+**影响范围**：
+- 新审批的申请会写入 `approved_items` 和 `approval_type`，列表直接展示审批数量
+- 历史已审批的申请数据无 `approved_items` 字段，列表中审批数量显示为申请数量（等同全量通过），审批结果显示为"全量通过"
+- 小程序端暂不修改，等待后续输入

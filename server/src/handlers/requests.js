@@ -325,6 +325,22 @@ async function approveRequest(req, res) {
       );
     }
 
+    // Build approved_items detail for storage
+    const approvedSet = new Set(approvedSNs);
+    const approvedItemsResult = request.items.map(reqItem => {
+      const approvedForItem = reqItem.serial_numbers.filter(sn => approvedSet.has(sn));
+      return {
+        part_no: reqItem.part_no,
+        part_name: reqItem.part_name,
+        value_type: reqItem.value_type || '高价值',
+        quantity: reqItem.quantity,
+        serial_numbers: reqItem.serial_numbers,
+        approved_quantity: approvedForItem.length,
+        approved_serial_numbers: approvedForItem,
+      };
+    });
+    const isPartial = approvedItemsResult.some(i => i.approved_quantity < i.quantity);
+
     // Update part_types current_stock
     const stockUpdates = Object.entries(stockDecrements).map(([pno, dec]) =>
       db.collection('part_types').updateOne(
@@ -354,6 +370,8 @@ async function approveRequest(req, res) {
       {
         $set: {
           status: 'approved',
+          approval_type: isPartial ? 'partial' : 'full',
+          approved_items: approvedItemsResult,
           approved_by: req.user.username,
           approved_at: now,
           updated_at: now,
