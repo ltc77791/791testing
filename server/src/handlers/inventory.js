@@ -354,6 +354,15 @@ async function batchImport(req, res) {
 
       batchSNSet.add(sn);
 
+      // 入库时间：优先使用导入数据中的值，为空则取当前时间
+      let inboundTime = now;
+      if (item.inbound_time) {
+        const parsed = new Date(item.inbound_time);
+        if (!isNaN(parsed.getTime())) {
+          inboundTime = parsed;
+        }
+      }
+
       validDocs.push({
         part_no: item.part_no,
         part_name: partType.part_name,
@@ -364,7 +373,7 @@ async function batchImport(req, res) {
         condition: cond,
         contract_no: item.contract_no,
         status: 0,
-        inbound_time: now,
+        inbound_time: inboundTime,
         inbound_operator: req.user.username,
         outbound_time: null,
         receiver: null,
