@@ -8,9 +8,9 @@
     </div>
 
     <!-- 用户表格 -->
-    <el-table :data="userList" v-loading="loading" border stripe>
-      <el-table-column prop="username" label="用户名" min-width="120" />
-      <el-table-column label="角色" min-width="120">
+    <el-table :data="userList" v-loading="loading" border stripe size="small" class="compact-table">
+      <el-table-column prop="username" label="用户名" min-width="100" show-overflow-tooltip />
+      <el-table-column label="角色" min-width="100">
         <template #default="{ row }">
           <el-tag
             v-for="role in row.roles"
@@ -23,7 +23,7 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="状态" width="100" align="center">
+      <el-table-column label="状态" width="85" align="center">
         <template #default="{ row }">
           <el-switch
             :model-value="row.is_active"
@@ -32,38 +32,38 @@
             active-text="启用"
             inactive-text="停用"
             inline-prompt
+            size="small"
           />
         </template>
       </el-table-column>
-      <el-table-column label="微信绑定" width="100" align="center">
+      <el-table-column label="微信" width="70" align="center">
         <template #default="{ row }">
           <el-tag v-if="row.openid" type="success" size="small">已绑定</el-tag>
           <el-tag v-else type="info" size="small">未绑定</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="最后登录" min-width="160">
+      <el-table-column label="最后登录" width="135" show-overflow-tooltip>
         <template #default="{ row }">
           {{ row.last_login ? formatTime(row.last_login) : '从未登录' }}
         </template>
       </el-table-column>
-      <el-table-column label="创建时间" min-width="160">
+      <el-table-column label="创建时间" width="135" show-overflow-tooltip>
         <template #default="{ row }">
           {{ formatTime(row.created_at) }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="280" fixed="right">
+      <el-table-column label="操作" width="200" fixed="right" align="center">
         <template #default="{ row }">
-          <el-button size="small" @click="openEditDialog(row)">编辑</el-button>
-          <el-button size="small" type="warning" @click="openResetPwdDialog(row)">
-            重置密码
-          </el-button>
+          <el-button size="small" link type="primary" @click="openEditDialog(row)">编辑</el-button>
+          <el-button size="small" link type="warning" @click="openResetPwdDialog(row)">重置密码</el-button>
           <el-button
             v-if="row.openid"
             size="small"
+            link
             type="info"
             @click="handleUnbindWx(row.username)"
           >
-            解绑微信
+            解绑
           </el-button>
           <el-popconfirm
             title="确定要删除该用户吗？"
@@ -73,6 +73,7 @@
             <template #reference>
               <el-button
                 size="small"
+                link
                 type="danger"
                 :disabled="row.username === authStore.user?.username"
               >
@@ -330,8 +331,18 @@ async function handleDelete(username: string) {
 
 <style scoped>
 .toolbar {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   display: flex;
   justify-content: flex-end;
+}
+.compact-table {
+  font-size: 13px;
+}
+.compact-table :deep(.el-table__header th) {
+  font-size: 13px;
+  padding: 6px 0;
+}
+.compact-table :deep(.el-table__body td) {
+  padding: 4px 0;
 }
 </style>

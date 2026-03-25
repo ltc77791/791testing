@@ -6,7 +6,7 @@
         v-model="filters.status"
         placeholder="申请状态"
         clearable
-        style="width: 140px"
+        style="width: 120px"
         @change="handleSearch"
       >
         <el-option label="待审批" value="pending" />
@@ -19,14 +19,14 @@
         v-model="filters.applicant"
         placeholder="申请人"
         clearable
-        style="width: 140px; margin-left: 12px"
+        style="width: 120px"
         @keyup.enter="handleSearch"
         @clear="handleSearch"
       />
 
-      <el-button style="margin-left: 12px" type="primary" @click="handleSearch">查询</el-button>
+      <el-button type="primary" @click="handleSearch">查询</el-button>
       <el-button @click="handleReset">重置</el-button>
-      <el-button style="margin-left: auto" type="success" plain :loading="exporting" @click="handleExport">导出 CSV</el-button>
+      <el-button style="margin-left: auto" type="success" plain :loading="exporting" @click="handleExport">导出</el-button>
     </div>
 
     <!-- 申请列表（按申请项展开，每行一个备件） -->
@@ -35,37 +35,39 @@
       v-loading="loading"
       border
       stripe
+      size="small"
+      class="compact-table"
       style="width: 100%"
       :span-method="spanMethod"
     >
-      <el-table-column label="申请时间" min-width="160">
+      <el-table-column label="申请时间" width="135" show-overflow-tooltip>
         <template #default="{ row }">{{ formatTime(row._created_at) }}</template>
       </el-table-column>
-      <el-table-column label="项目号" min-width="120">
+      <el-table-column label="项目号" min-width="90" show-overflow-tooltip>
         <template #default="{ row }">{{ row._project_no || '-' }}</template>
       </el-table-column>
-      <el-table-column label="申请人" width="90">
+      <el-table-column label="申请人" width="70" show-overflow-tooltip>
         <template #default="{ row }">{{ row._applicant }}</template>
       </el-table-column>
-      <el-table-column label="出库原因" width="90" align="center">
+      <el-table-column label="出库原因" width="75" align="center">
         <template #default="{ row }">{{ row._outbound_reason || '-' }}</template>
       </el-table-column>
-      <el-table-column prop="part_no" label="备件编号" min-width="120" />
-      <el-table-column prop="part_name" label="备件名称" min-width="120" />
-      <el-table-column label="序列号" min-width="180">
+      <el-table-column prop="part_no" label="备件编号" min-width="95" show-overflow-tooltip />
+      <el-table-column prop="part_name" label="备件名称" min-width="95" show-overflow-tooltip />
+      <el-table-column label="序列号" min-width="120" show-overflow-tooltip>
         <template #default="{ row }">
           <span v-if="row.serial_numbers?.length">{{ row.serial_numbers.join(', ') }}</span>
           <span v-else style="color: #909399">-</span>
         </template>
       </el-table-column>
-      <el-table-column prop="quantity" label="申请数量" width="85" align="center" />
-      <el-table-column label="审批时间" min-width="160">
+      <el-table-column prop="quantity" label="申请数量" width="65" align="center" />
+      <el-table-column label="审批时间" width="135" show-overflow-tooltip>
         <template #default="{ row }">{{ row._approved_at ? formatTime(row._approved_at) : '-' }}</template>
       </el-table-column>
-      <el-table-column label="审批人" width="90">
+      <el-table-column label="审批人" width="70" show-overflow-tooltip>
         <template #default="{ row }">{{ row._approved_by || '-' }}</template>
       </el-table-column>
-      <el-table-column label="审批结果" width="100" align="center">
+      <el-table-column label="审批结果" width="80" align="center">
         <template #default="{ row }">
           <el-tag v-if="row._status === 'approved'" :type="row._approval_type === 'partial' ? 'warning' : 'success'" size="small">
             {{ row._approval_type === 'partial' ? '部分通过' : '全量通过' }}
@@ -75,7 +77,7 @@
           <el-tag v-else type="warning" size="small">待审批</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="审批数量" width="85" align="center">
+      <el-table-column label="审批数量" width="65" align="center">
         <template #default="{ row }">
           <template v-if="row._status === 'approved'">
             <span :class="{ 'partial-qty': row.approved_quantity < row.quantity }">
@@ -85,12 +87,12 @@
           <span v-else>-</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="200" fixed="right">
+      <el-table-column label="操作" width="130" fixed="right" align="center">
         <template #default="{ row }">
-          <el-button size="small" @click="openDetail(row._request)">详情</el-button>
+          <el-button size="small" link type="primary" @click="openDetail(row._request)">详情</el-button>
           <template v-if="row._status === 'pending'">
-            <el-button size="small" type="success" @click="openApproveDialog(row._request)">审批</el-button>
-            <el-button size="small" type="danger" @click="openRejectDialog(row._request)">驳回</el-button>
+            <el-button size="small" link type="success" @click="openApproveDialog(row._request)">审批</el-button>
+            <el-button size="small" link type="danger" @click="openRejectDialog(row._request)">驳回</el-button>
           </template>
         </template>
       </el-table-column>
@@ -585,13 +587,24 @@ onMounted(fetchData)
 
 <style scoped>
 .filter-bar {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
+  gap: 8px;
+}
+.compact-table {
+  font-size: 13px;
+}
+.compact-table :deep(.el-table__header th) {
+  font-size: 13px;
+  padding: 6px 0;
+}
+.compact-table :deep(.el-table__body td) {
+  padding: 4px 0;
 }
 .pagination-wrapper {
-  margin-top: 16px;
+  margin-top: 12px;
   display: flex;
   justify-content: flex-end;
 }
