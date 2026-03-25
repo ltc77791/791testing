@@ -17,6 +17,8 @@
 | 7 | 2026-03-24 | 备件类型 (全栈) | 备件类型新增「型号」和「单价」字段；高价值备件型号为必填，单价为选填 | 已完成 | `server/src/utils/validate.js`, `server/src/handlers/partTypes.js`, `admin/src/views/part-types/PartTypeManagement.vue` |
 | 8 | 2026-03-24 | 备件类型 (全栈) | 备件类型管理新增批量导入功能，支持 Excel/CSV 模板下载、解析预览、批量创建 | 已完成 | `server/src/utils/validate.js`, `server/src/handlers/partTypes.js`, `server/src/routes/partTypes.js`, `admin/src/views/part-types/PartTypeManagement.vue` |
 | 9 | 2026-03-25 | 申请/审批显示优化 (PC端) | 重构网页端申请结果和审批管理的列表/详情展示，按备件项逐行展示12个字段，支持部分审批数量显示 | 已完成 | `server/src/handlers/requests.js`, `admin/src/views/requests/ApprovalPage.vue`, `admin/src/views/requests/RequestPage.vue` |
+| 10 | 2026-03-25 | 历史数据迁移修复 | 修复历史已审批申请全部显示「全量通过」的BUG，启动时自动迁移补全 `approved_items` 和 `approval_type` | 已完成 | `server/src/db.js`, `server/src/index.js` |
+| 11 | 2026-03-25 | CSV导出修复 (全部) | 重写申请记录CSV导出，修正字段映射错误和格式问题；所有导出表头改为中文 | 已完成 | `server/src/handlers/export.js` |
 
 ---
 
@@ -273,3 +275,69 @@ requests {
 - 新审批的申请会写入 `approved_items` 和 `approval_type`，列表直接展示审批数量
 - 历史已审批的申请数据无 `approved_items` 字段，列表中审批数量显示为申请数量（等同全量通过），审批结果显示为"全量通过"
 - 小程序端暂不修改，等待后续输入
+
+---
+
+### 10. 历史已审批申请数据迁移修复（2026-03-25）
+
+**背景**：变更 9 新增了 `approved_items` 和 `approval_type` 字段，但仅在新审批操作时写入。历史已审批的申请文档缺少这两个字段，前端回退显示原始 `items`（全部SN），导致所有历史审批结果均显示「全量通过」，且部分实际已出库的序列号在库存页面仍显示在库。
+
+**问题现象**：
+- 所有已审批申请的「审批结果」列均显示「全量通过」，包括实际为部分审批的记录
+- 部分审批中被批准出库的序列号在库存列表中仍显示「在库」状态
+
+**根因分析**：
+- 前端逻辑：优先读取 `approved_items`，不存在时回退到 `items`，将所有预留SN视为已审批
+- 历史数据：审批代码在变更 9 之前未写入 `approved_items`/`approval_type` 字段
+
+**修复方案**：
+- 新增 `migrateApprovedRequests()` 启动迁移函数，在服务启动时自动运行
+- 查找所有 `status='approved'` 且缺少 `approved_items` 字段的历史申请
+- 对每条申请的每个 item，查询 `inventory` 集合中对应序列号的实际状态（`status=1` 即已出库）
+- 据此重建 `approved_items`（含实际审批数量和审批序列号）和 `approval_type`
+- 迁移为幂等操作（通过 `approved_items: { $exists: false }` 过滤），重复运行不会重复处理
+
+**技术实现**：
+- **`server/src/db.js`**：新增 `migrateApprovedRequests()` 函数并导出
+- **`server/src/index.js`**：启动流程中 `initCollections()` 之后调用 `await migrateApprovedRequests()`
+
+**影响范围**：
+- 仅影响历史已审批但缺少 `approved_items` 的申请数据
+- 迁移后这些申请在列表中正确显示「全量通过」或「部分通过」
+- 新的审批操作不受影响
+
+---
+
+### 11. CSV导出修复（2026-03-25）
+
+**背景**：审批管理页面的CSV导出功能存在严重的内容和格式问题，导出数据为空或错误。
+
+**问题分析**：
+- `exportRequests` 函数引用了 `requests` 文档上不存在的顶层字段（`part_no`, `qty`, `approved_qty`, `approved_sns`），实际数据模型中这些信息在 `items[]` / `approved_items[]` 数组内
+- 每条申请仅输出一行，未按物料项展开，与页面显示格式不一致
+- 所有CSV表头为英文字段名（如 `part_no`, `status`），中文用户无法直接使用
+
+**修复内容**：
+
+1. **重写 `exportRequests`**：
+   - 正确读取 `approved_items`（优先）或 `items` 数组
+   - 按物料项逐行展开，与审批管理页面 12 列完全一致
+   - 审批结果显示中文：全量通过 / 部分通过 / 已驳回 / 已撤回 / 待审批
+   - 审批数量使用 `approved_quantity`（有 `approved_items` 时），否则按状态推断
+
+2. **CSV 12列**：
+   申请时间、项目号、申请人、出库原因、备件编号、备件名称、序列号、申请数量、审批时间、审批人、审批结果、审批数量
+
+3. **所有导出表头统一改为中文**：
+   - 库存导出：备件编号、备件名称、序列号、状况、子公司、仓库、入库时间、入库操作人
+   - 分析导出：月份/入库数量/出库数量（趋势），备件编号/备件名称/序列号/子公司/仓库/入库时间/库龄(天)/库龄分组（库龄）
+
+4. **重构 `toCsv` 工具函数**：
+   - 支持 `{ key, label }` 列定义对象，分离内部字段名和显示标签
+   - 向后兼容纯字符串列名（同时作为 key 和 label）
+   - 提取 `escapeCsvField` 为独立函数
+
+**影响范围**：
+- 审批管理页导出的CSV内容与页面表格展示一致，数据正确完整
+- 库存导出和分析导出的表头从英文改为中文，内容不变
+- 所有CSV均保留 UTF-8 BOM 以确保 Excel 正确识别中文编码
