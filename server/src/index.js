@@ -4,7 +4,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
 const config = require('./config');
-const { connectDB, initCollections } = require('./db');
+const { connectDB, initCollections, migrateApprovedRequests } = require('./db');
 
 const app = express();
 
@@ -87,6 +87,7 @@ async function start() {
   try {
     await connectDB();
     await initCollections();
+    await migrateApprovedRequests();
 
     app.listen(config.port, () => {
       console.log(`Server running on http://localhost:${config.port}`);
