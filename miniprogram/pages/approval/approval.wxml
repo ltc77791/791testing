@@ -1,5 +1,6 @@
 <!--
   审批页 — 待审批列表 + 审批/驳回（含部分批准）
+  审批结果只展示: 申请人、备件编号、备件名称、申请数量、审批人、审批结果、审批数量
 -->
 <view>
   <!-- 状态筛选 -->
@@ -12,19 +13,32 @@
 
   <!-- 列表 -->
   <view wx:for="{{items}}" wx:key="_id" class="card" bindtap="onTapRequest" data-id="{{item._id}}">
-    <view style="display: flex; justify-content: space-between; align-items: center;">
-      <view>
-        <text style="font-weight: 600;">{{item.applicant}}</text>
-        <view class="tag tag-{{item.status}}" style="margin-left: 12rpx;">{{item.statusLabel}}</view>
-      </view>
-      <text style="font-size: 24rpx; color: #999;">{{item.createdAtText}}</text>
+    <!-- 头部: 申请人 + 审批结果 -->
+    <view class="card-header">
+      <text class="card-applicant">{{item.applicant}}</text>
+      <view class="tag tag-{{item.status}}">{{item.statusLabel}}</view>
     </view>
-    <view style="margin-top: 12rpx;">
-      <view wx:for="{{item.items}}" wx:for-item="sub" wx:key="part_no" style="font-size: 26rpx; color: #666;">
-        {{sub.part_name}} x {{sub.quantity}}
+
+    <!-- 备件明细表格 -->
+    <view class="item-table">
+      <view class="item-table-head">
+        <text class="col-no">备件编号</text>
+        <text class="col-name">备件名称</text>
+        <text class="col-qty">申请</text>
+        <text class="col-qty" wx:if="{{item.status === 'approved'}}">审批</text>
+      </view>
+      <view wx:for="{{item.displayItems}}" wx:for-item="sub" wx:key="part_no" class="item-table-row">
+        <text class="col-no">{{sub.part_no}}</text>
+        <text class="col-name">{{sub.part_name}}</text>
+        <text class="col-qty">{{sub.quantity}}</text>
+        <text class="col-qty {{sub.approved_quantity < sub.quantity ? 'partial-qty' : ''}}" wx:if="{{item.status === 'approved'}}">{{sub.approved_quantity != null ? sub.approved_quantity : sub.quantity}}</text>
       </view>
     </view>
-    <view style="font-size: 24rpx; color: #999; margin-top: 8rpx;">项目号: {{item.project_no || '-'}} | 项目: {{item.project_location}} | 原因: {{item.outbound_reason || '-'}}</view>
+
+    <!-- 底部: 审批人 -->
+    <view class="card-footer" wx:if="{{item.approved_by}}">
+      <text class="card-meta">审批人: {{item.approved_by}}</text>
+    </view>
   </view>
 
   <view wx:if="{{!loading && items.length === 0}}" class="empty">
@@ -32,36 +46,89 @@
   </view>
   <view wx:if="{{loading}}" class="loading">加载中...</view>
 
-  <!-- 审批弹窗 -->
+  <!-- 审批/详情弹窗 -->
   <view wx:if="{{showApprovalDialog}}" class="dialog-mask" bindtap="closeDialog">
     <view class="dialog-content" catchtap="noop" style="max-height: 85vh; overflow-y: auto;">
-      <view class="card-title">审批详情</view>
 
-      <view style="margin-bottom: 16rpx;">
-        <text style="color: #999;">申请人: </text>
-        <text>{{currentRequest.applicant}}</text>
-      </view>
-      <view style="margin-bottom: 16rpx;">
-        <text style="color: #999;">项目号: </text>
-        <text>{{currentRequest.project_no || '-'}}</text>
-      </view>
-      <view style="margin-bottom: 16rpx;">
-        <text style="color: #999;">项目: </text>
-        <text>{{currentRequest.project_location}}</text>
-      </view>
-      <view style="margin-bottom: 16rpx;">
-        <text style="color: #999;">出库原因: </text>
-        <text>{{currentRequest.outbound_reason || '-'}}</text>
-      </view>
+      <!-- ======== 已审批/已驳回/已撤回: 精简展示 ======== -->
+      <block wx:if="{{currentRequest.status !== 'pending'}}">
+        <view class="card-title">审批结果</view>
 
-      <view style="margin-bottom: 16rpx;">
-        <text style="color: #999;">申请明细:</text>
-        <view wx:for="{{currentRequest.items}}" wx:for-item="sub" wx:key="part_no" style="padding: 4rpx 0; font-size: 26rpx;">
-          {{sub.part_name}} ({{sub.part_no}}) x {{sub.quantity}}
+        <!-- 基本信息 -->
+        <view class="result-info">
+          <view class="result-row">
+            <text class="result-label">申请人</text>
+            <text class="result-value">{{currentRequest.applicant}}</text>
+          </view>
+          <view class="result-row">
+            <text class="result-label">审批人</text>
+            <text class="result-value">{{currentRequest.approved_by || '-'}}</text>
+          </view>
+          <view class="result-row">
+            <text class="result-label">审批结果</text>
+            <view class="result-value">
+              <view wx:if="{{currentRequest.status === 'approved'}}" class="tag tag-approved">
+                {{currentRequest.approval_type === 'partial' ? '部分通过' : '全量通过'}}
+              </view>
+              <view wx:elif="{{currentRequest.status === 'rejected'}}" class="tag tag-rejected">已驳回</view>
+              <view wx:else class="tag tag-cancelled">已撤回</view>
+            </view>
+          </view>
+          <view class="result-row" wx:if="{{currentRequest.status === 'rejected' && currentRequest.reject_reason}}">
+            <text class="result-label">驳回原因</text>
+            <text class="result-value reject-text">{{currentRequest.reject_reason}}</text>
+          </view>
         </view>
-      </view>
 
-      <block wx:if="{{currentRequest.status === 'pending'}}">
+        <!-- 备件明细 -->
+        <view class="result-table">
+          <view class="result-table-head">
+            <text class="rcol-no">备件编号</text>
+            <text class="rcol-name">备件名称</text>
+            <text class="rcol-qty">申请</text>
+            <text class="rcol-qty" wx:if="{{currentRequest.status === 'approved'}}">审批</text>
+          </view>
+          <view wx:for="{{detailItems}}" wx:for-item="sub" wx:key="part_no" class="result-table-row">
+            <text class="rcol-no">{{sub.part_no}}</text>
+            <text class="rcol-name">{{sub.part_name}}</text>
+            <text class="rcol-qty">{{sub.quantity}}</text>
+            <text class="rcol-qty {{sub.approved_quantity < sub.quantity ? 'partial-qty' : ''}}" wx:if="{{currentRequest.status === 'approved'}}">{{sub.approved_quantity != null ? sub.approved_quantity : sub.quantity}}</text>
+          </view>
+        </view>
+
+        <button class="btn-default" style="margin-top: 24rpx;" bindtap="closeDialog">关闭</button>
+      </block>
+
+      <!-- ======== 待审批: 完整审批操作界面 ======== -->
+      <block wx:else>
+        <view class="card-title">审批详情</view>
+
+        <view class="result-info">
+          <view class="result-row">
+            <text class="result-label">申请人</text>
+            <text class="result-value">{{currentRequest.applicant}}</text>
+          </view>
+          <view class="result-row">
+            <text class="result-label">项目号</text>
+            <text class="result-value">{{currentRequest.project_no || '-'}}</text>
+          </view>
+          <view class="result-row">
+            <text class="result-label">项目地点</text>
+            <text class="result-value">{{currentRequest.project_location}}</text>
+          </view>
+          <view class="result-row">
+            <text class="result-label">出库原因</text>
+            <text class="result-value">{{currentRequest.outbound_reason || '-'}}</text>
+          </view>
+        </view>
+
+        <view style="margin-bottom: 16rpx;">
+          <text style="color: #999; font-size: 26rpx;">申请明细:</text>
+          <view wx:for="{{currentRequest.items}}" wx:for-item="sub" wx:key="part_no" style="padding: 4rpx 0; font-size: 26rpx;">
+            {{sub.part_name}} ({{sub.part_no}}) x {{sub.quantity}}
+          </view>
+        </view>
+
         <!-- 审批模式切换 -->
         <view style="margin-bottom: 20rpx;">
           <view style="font-size: 28rpx; font-weight: 600; margin-bottom: 12rpx;">审批模式</view>
@@ -141,15 +208,9 @@
           </button>
           <button style="flex: 1; background: #ff4d4f; color: #fff; border-radius: 8rpx;" bindtap="onReject">驳回</button>
         </view>
-      </block>
 
-      <block wx:if="{{currentRequest.status === 'rejected'}}">
-        <view style="color: #f5222d; margin-top: 12rpx;">
-          驳回原因: {{currentRequest.reject_reason}}
-        </view>
+        <button class="btn-default" style="margin-top: 16rpx;" bindtap="closeDialog">关闭</button>
       </block>
-
-      <button class="btn-default" style="margin-top: 16rpx;" bindtap="closeDialog">关闭</button>
     </view>
   </view>
 </view>

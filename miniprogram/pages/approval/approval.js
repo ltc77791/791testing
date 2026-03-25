@@ -16,6 +16,7 @@ Page({
     // 审批弹窗
     showApprovalDialog: false,
     currentRequest: null,
+    detailItems: [],
     rejectReason: '',
     // 部分批准
     approveMode: 'full', // 'full' | 'partial'
@@ -54,11 +55,18 @@ Page({
     this.setData({ loading: false });
 
     if (res.code === 0) {
-      const newItems = (res.data.items || []).map(item => ({
-        ...item,
-        statusLabel: statusText(item.status),
-        createdAtText: formatTime(item.created_at),
-      }));
+      const newItems = (res.data.items || []).map(item => {
+        // For approved requests with approved_items, use those for display
+        const displayItems = (item.status === 'approved' && item.approved_items && item.approved_items.length)
+          ? item.approved_items
+          : item.items;
+        return {
+          ...item,
+          statusLabel: statusText(item.status),
+          createdAtText: formatTime(item.created_at),
+          displayItems,
+        };
+      });
       this.setData({
         items: reset ? newItems : [...this.data.items, ...newItems],
         total: res.data.total || 0,
@@ -101,9 +109,15 @@ Page({
       };
     });
 
+    // For completed requests, use approved_items if available
+    const detailItems = (item.status === 'approved' && item.approved_items && item.approved_items.length)
+      ? item.approved_items
+      : item.items;
+
     this.setData({
       showApprovalDialog: true,
       currentRequest: item,
+      detailItems,
       rejectReason: '',
       approveMode: 'full',
       approveItems,

@@ -1,5 +1,84 @@
 /* 审批页样式 */
 
+/* ── 列表卡片 ── */
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.card-applicant {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #333;
+}
+
+.card-footer {
+  margin-top: 12rpx;
+  padding-top: 12rpx;
+  border-top: 2rpx solid #f0f0f0;
+}
+
+.card-meta {
+  font-size: 24rpx;
+  color: #999;
+}
+
+/* ── 备件明细表格(卡片内) ── */
+.item-table {
+  background: #fafafa;
+  border-radius: 8rpx;
+  overflow: hidden;
+}
+
+.item-table-head {
+  display: flex;
+  padding: 12rpx 16rpx;
+  background: #f0f0f0;
+  font-size: 22rpx;
+  color: #999;
+  font-weight: 500;
+}
+
+.item-table-row {
+  display: flex;
+  padding: 10rpx 16rpx;
+  font-size: 24rpx;
+  color: #333;
+  border-bottom: 2rpx solid #f0f0f0;
+}
+
+.item-table-row:last-child {
+  border-bottom: none;
+}
+
+.col-no {
+  flex: 3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.col-name {
+  flex: 3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.col-qty {
+  flex: 1;
+  text-align: center;
+  min-width: 60rpx;
+}
+
+.partial-qty {
+  color: #e6a23c;
+  font-weight: 600;
+}
+
+/* ── 弹窗 ── */
 .dialog-mask {
   position: fixed;
   top: 0;
@@ -22,7 +101,90 @@
   overflow-y: auto;
 }
 
-/* 审批模式按钮 */
+/* ── 审批结果详情 ── */
+.result-info {
+  margin-bottom: 20rpx;
+}
+
+.result-row {
+  display: flex;
+  align-items: flex-start;
+  padding: 10rpx 0;
+  font-size: 28rpx;
+  border-bottom: 2rpx solid #fafafa;
+}
+
+.result-row:last-child {
+  border-bottom: none;
+}
+
+.result-label {
+  width: 140rpx;
+  flex-shrink: 0;
+  color: #999;
+  font-size: 26rpx;
+}
+
+.result-value {
+  flex: 1;
+  color: #333;
+  font-size: 26rpx;
+}
+
+.reject-text {
+  color: #f5222d;
+}
+
+/* ── 审批结果备件表格(弹窗内) ── */
+.result-table {
+  background: #fafafa;
+  border-radius: 8rpx;
+  overflow: hidden;
+  margin-bottom: 8rpx;
+}
+
+.result-table-head {
+  display: flex;
+  padding: 14rpx 16rpx;
+  background: #f0f0f0;
+  font-size: 24rpx;
+  color: #999;
+  font-weight: 500;
+}
+
+.result-table-row {
+  display: flex;
+  padding: 14rpx 16rpx;
+  font-size: 26rpx;
+  color: #333;
+  border-bottom: 2rpx solid #f0f0f0;
+}
+
+.result-table-row:last-child {
+  border-bottom: none;
+}
+
+.rcol-no {
+  flex: 3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rcol-name {
+  flex: 3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rcol-qty {
+  flex: 1;
+  text-align: center;
+  min-width: 60rpx;
+}
+
+/* ── 审批模式按钮 ── */
 .mode-btn {
   padding: 12rpx 24rpx;
   border: 2rpx solid #d9d9d9;
@@ -38,7 +200,7 @@
   background: #e6f7ff;
 }
 
-/* 序列号选择芯片 */
+/* ── 序列号选择芯片 ── */
 .sn-chip {
   display: inline-block;
   padding: 8rpx 16rpx;
