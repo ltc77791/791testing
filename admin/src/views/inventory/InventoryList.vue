@@ -4,9 +4,9 @@
     <div class="filter-bar">
       <el-input
         v-model="filters.keyword"
-        placeholder="搜索序列号/编号/名称/仓库"
+        placeholder="序列号/编号/名称/仓库"
         clearable
-        style="width: 260px"
+        style="width: 220px"
         @keyup.enter="handleSearch"
         @clear="handleSearch"
       >
@@ -18,7 +18,7 @@
         placeholder="备件类型"
         clearable
         filterable
-        style="width: 180px; margin-left: 12px"
+        style="width: 160px"
         @change="handleSearch"
       >
         <el-option
@@ -33,7 +33,7 @@
         v-model="filters.subsidiary"
         placeholder="子公司"
         clearable
-        style="width: 160px; margin-left: 12px"
+        style="width: 130px"
         @change="handleSearch"
       >
         <el-option
@@ -46,10 +46,10 @@
 
       <el-select
         v-model="filters.contract_no"
-        placeholder="采购合同号"
+        placeholder="合同号"
         clearable
         filterable
-        style="width: 180px; margin-left: 12px"
+        style="width: 140px"
         @change="handleSearch"
       >
         <el-option
@@ -64,57 +64,57 @@
         v-model="filters.status"
         placeholder="状态"
         clearable
-        style="width: 120px; margin-left: 12px"
+        style="width: 90px"
         @change="handleSearch"
       >
         <el-option label="在库" :value="0" />
         <el-option label="已出库" :value="1" />
       </el-select>
 
-      <el-button style="margin-left: 12px" @click="handleReset">重置</el-button>
-      <el-button style="margin-left: auto" type="success" plain :loading="exporting" @click="handleExport">导出 CSV</el-button>
+      <el-button @click="handleReset">重置</el-button>
+      <el-button style="margin-left: auto" type="success" plain :loading="exporting" @click="handleExport">导出</el-button>
     </div>
 
     <!-- 库存表格 -->
-    <el-table :data="tableData" v-loading="loading" border stripe style="width: 100%">
-      <el-table-column prop="serial_number" label="序列号" min-width="130" />
-      <el-table-column prop="part_no" label="备件编号" min-width="130" />
-      <el-table-column prop="part_name" label="备件名称" min-width="140" />
-      <el-table-column prop="subsidiary" label="子公司" min-width="120" />
-      <el-table-column prop="warehouse" label="仓库" min-width="120" />
-      <el-table-column label="成色" width="100" align="center">
+    <el-table :data="tableData" v-loading="loading" border stripe size="small" class="compact-table" style="width: 100%">
+      <el-table-column prop="serial_number" label="序列号" min-width="120" show-overflow-tooltip />
+      <el-table-column prop="part_no" label="备件编号" min-width="95" show-overflow-tooltip />
+      <el-table-column prop="part_name" label="备件名称" min-width="95" show-overflow-tooltip />
+      <el-table-column prop="subsidiary" label="子公司" min-width="80" show-overflow-tooltip />
+      <el-table-column prop="warehouse" label="仓库" min-width="80" show-overflow-tooltip />
+      <el-table-column label="成色" width="70" align="center">
         <template #default="{ row }">
           <el-tag :type="row.condition === '全新' ? 'success' : 'warning'" size="small">
             {{ row.condition }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="contract_no" label="采购合同号" min-width="140">
+      <el-table-column prop="contract_no" label="合同号" min-width="95" show-overflow-tooltip>
         <template #default="{ row }">{{ row.contract_no || '-' }}</template>
       </el-table-column>
-      <el-table-column label="状态" width="80" align="center">
+      <el-table-column label="状态" width="60" align="center">
         <template #default="{ row }">
           <el-tag :type="row.status === 0 ? '' : 'info'" size="small">
             {{ row.status === 0 ? '在库' : '已出库' }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="入库时间" min-width="160">
+      <el-table-column label="入库时间" width="135" show-overflow-tooltip>
         <template #default="{ row }">{{ formatTime(row.inbound_time) }}</template>
       </el-table-column>
-      <el-table-column prop="inbound_operator" label="入库人" width="90" />
-      <el-table-column label="出库时间" min-width="160">
+      <el-table-column prop="inbound_operator" label="入库人" width="70" show-overflow-tooltip />
+      <el-table-column label="出库时间" width="135" show-overflow-tooltip>
         <template #default="{ row }">{{ row.outbound_time ? formatTime(row.outbound_time) : '-' }}</template>
       </el-table-column>
-      <el-table-column prop="receiver" label="领用人" width="90">
+      <el-table-column label="领用人" width="70" show-overflow-tooltip>
         <template #default="{ row }">{{ row.receiver || '-' }}</template>
       </el-table-column>
-      <el-table-column prop="project_location" label="项目/用途" min-width="140">
+      <el-table-column label="项目/用途" min-width="90" show-overflow-tooltip>
         <template #default="{ row }">{{ row.project_location || '-' }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="80" fixed="right">
+      <el-table-column label="操作" width="55" fixed="right" align="center">
         <template #default="{ row }">
-          <el-button size="small" @click="openEditDialog(row)" :disabled="row.status === 1">
+          <el-button size="small" link type="primary" @click="openEditDialog(row)" :disabled="row.status === 1">
             编辑
           </el-button>
         </template>
@@ -393,14 +393,24 @@ function resetEditForm() {
 
 <style scoped>
 .filter-bar {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0;
+  gap: 8px;
+}
+.compact-table {
+  font-size: 13px;
+}
+.compact-table :deep(.el-table__header th) {
+  font-size: 13px;
+  padding: 6px 0;
+}
+.compact-table :deep(.el-table__body td) {
+  padding: 4px 0;
 }
 .pagination-wrapper {
-  margin-top: 16px;
+  margin-top: 12px;
   display: flex;
   justify-content: flex-end;
 }
