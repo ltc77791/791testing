@@ -31,11 +31,12 @@ async function generateAutoSN() {
 async function listInventory(req, res) {
   try {
     const db = getDB();
-    const { part_no, subsidiary, status, keyword, page = 1, pageSize = 20 } = req.query;
+    const { part_no, subsidiary, status, contract_no, keyword, page = 1, pageSize = 20 } = req.query;
 
     const filter = {};
     if (part_no) filter.part_no = part_no;
     if (subsidiary) filter.subsidiary = subsidiary;
+    if (contract_no) filter.contract_no = contract_no;
     if (status !== undefined) filter.status = Number(status);
     if (keyword) {
       const regex = { $regex: keyword, $options: 'i' };

@@ -45,6 +45,22 @@
       </el-select>
 
       <el-select
+        v-model="filters.contract_no"
+        placeholder="采购合同号"
+        clearable
+        filterable
+        style="width: 180px; margin-left: 12px"
+        @change="handleSearch"
+      >
+        <el-option
+          v-for="c in contractOptions"
+          :key="c"
+          :label="c"
+          :value="c"
+        />
+      </el-select>
+
+      <el-select
         v-model="filters.status"
         placeholder="状态"
         clearable
@@ -72,6 +88,9 @@
             {{ row.condition }}
           </el-tag>
         </template>
+      </el-table-column>
+      <el-table-column prop="contract_no" label="采购合同号" min-width="140">
+        <template #default="{ row }">{{ row.contract_no || '-' }}</template>
       </el-table-column>
       <el-table-column label="状态" width="80" align="center">
         <template #default="{ row }">
@@ -167,6 +186,7 @@ interface InventoryRecord {
   subsidiary: string
   warehouse: string
   condition: string
+  contract_no: string | null
   status: number
   inbound_time: string
   inbound_operator: string
@@ -194,12 +214,14 @@ const filters = reactive({
   keyword: '',
   part_no: '',
   subsidiary: '',
+  contract_no: '',
   status: undefined as number | undefined,
 })
 
 // 下拉选项
 const partTypeOptions = ref<PartTypeOption[]>([])
 const subsidiaryOptions = ref<string[]>([])
+const contractOptions = ref<string[]>([])
 
 // 编辑
 const editVisible = ref(false)
@@ -239,14 +261,18 @@ async function loadOptions() {
 
   // 从库存数据中提取子公司列表
   try {
-    await http.get('/inventory', { params: { pageSize: 1 } })
-    // 后端没有单独的子公司接口，从完整列表中提取
     const allRes: any = await http.get('/inventory', { params: { pageSize: 100 } })
     const subs = new Set<string>()
     for (const item of allRes.data.items) {
       if (item.subsidiary) subs.add(item.subsidiary)
     }
     subsidiaryOptions.value = [...subs].sort()
+  } catch { /* ignore */ }
+
+  // 加载采购合同号选项
+  try {
+    const res: any = await http.get('/dictionaries/options', { params: { category: 'contract_no' } })
+    contractOptions.value = res.data.map((d: any) => d.label)
   } catch { /* ignore */ }
 }
 
@@ -261,6 +287,7 @@ async function fetchData() {
     if (filters.keyword) params.keyword = filters.keyword
     if (filters.part_no) params.part_no = filters.part_no
     if (filters.subsidiary) params.subsidiary = filters.subsidiary
+    if (filters.contract_no) params.contract_no = filters.contract_no
     if (filters.status !== undefined) params.status = filters.status
 
     const res: any = await http.get('/inventory', { params })
@@ -280,6 +307,7 @@ function handleReset() {
   filters.keyword = ''
   filters.part_no = ''
   filters.subsidiary = ''
+  filters.contract_no = ''
   filters.status = undefined
   handleSearch()
 }
@@ -291,6 +319,7 @@ async function handleExport() {
     if (filters.keyword) params.keyword = filters.keyword
     if (filters.part_no) params.part_no = filters.part_no
     if (filters.subsidiary) params.subsidiary = filters.subsidiary
+    if (filters.contract_no) params.contract_no = filters.contract_no
     if (filters.status !== undefined) params.status = filters.status
     const res = await http.get('/export/inventory', { params, responseType: 'blob' })
     const blob = new Blob([res as any], { type: 'text/csv;charset=utf-8' })
