@@ -28,43 +28,68 @@ function escapeCsvField(val) {
 
 /**
  * GET /api/export/inventory
- * 导出在库库存明细 CSV
+ * 导出库存明细 CSV — 支持筛选参数，列与库存管理页面一致
+ * Query: ?part_no=&subsidiary=&status=0|1&keyword=
  */
 async function exportInventory(req, res) {
   try {
     const db = getDB();
+    const { part_no, subsidiary, status, keyword } = req.query;
+
+    const filter = {};
+    if (part_no) filter.part_no = part_no;
+    if (subsidiary) filter.subsidiary = subsidiary;
+    if (status !== undefined) filter.status = Number(status);
+    if (keyword) {
+      const regex = { $regex: keyword, $options: 'i' };
+      filter.$or = [
+        { serial_number: regex },
+        { part_no: regex },
+        { part_name: regex },
+        { warehouse: regex },
+      ];
+    }
 
     const items = await db.collection('inventory')
-      .find({ status: 0 })
-      .sort({ part_no: 1, serial_number: 1 })
-      .project({
-        _id: 0,
-        part_no: 1,
-        part_name: 1,
-        serial_number: 1,
-        condition: 1,
-        subsidiary: 1,
-        warehouse: 1,
-        inbound_time: 1,
-        inbound_operator: 1,
-      })
+      .find(filter)
+      .sort({ inbound_time: -1 })
       .toArray();
 
-    // Format dates
+    function fmtDate(d) {
+      if (!d) return '';
+      return new Date(d).toISOString().slice(0, 19).replace('T', ' ');
+    }
+
     const rows = items.map(r => ({
-      ...r,
-      inbound_time: r.inbound_time ? new Date(r.inbound_time).toISOString().slice(0, 19).replace('T', ' ') : '',
+      serial_number: r.serial_number || '',
+      part_no: r.part_no || '',
+      part_name: r.part_name || '',
+      subsidiary: r.subsidiary || '',
+      warehouse: r.warehouse || '',
+      condition: r.condition || '',
+      contract_no: r.contract_no || '',
+      status: r.status === 0 ? '在库' : '已出库',
+      inbound_time: fmtDate(r.inbound_time),
+      inbound_operator: r.inbound_operator || '',
+      outbound_time: fmtDate(r.outbound_time),
+      receiver: r.receiver || '',
+      project_location: r.project_location || '',
     }));
 
     const columns = [
+      { key: 'serial_number', label: '序列号' },
       { key: 'part_no', label: '备件编号' },
       { key: 'part_name', label: '备件名称' },
-      { key: 'serial_number', label: '序列号' },
-      { key: 'condition', label: '状况' },
       { key: 'subsidiary', label: '子公司' },
       { key: 'warehouse', label: '仓库' },
+      { key: 'condition', label: '成色' },
+      { key: 'contract_no', label: '采购合同号' },
+      { key: 'status', label: '状态' },
       { key: 'inbound_time', label: '入库时间' },
-      { key: 'inbound_operator', label: '入库操作人' },
+      { key: 'inbound_operator', label: '入库人' },
+      { key: 'outbound_time', label: '出库时间' },
+      { key: 'receiver', label: '领用人' },
+      { key: 'project_location', label: '项目/用途' },
     ];
     const csv = toCsv(rows, columns);
 

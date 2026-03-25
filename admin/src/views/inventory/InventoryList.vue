@@ -287,7 +287,12 @@ function handleReset() {
 async function handleExport() {
   exporting.value = true
   try {
-    const res = await http.get('/export/inventory', { responseType: 'blob' })
+    const params: any = {}
+    if (filters.keyword) params.keyword = filters.keyword
+    if (filters.part_no) params.part_no = filters.part_no
+    if (filters.subsidiary) params.subsidiary = filters.subsidiary
+    if (filters.status !== undefined) params.status = filters.status
+    const res = await http.get('/export/inventory', { params, responseType: 'blob' })
     const blob = new Blob([res as any], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
