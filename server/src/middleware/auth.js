@@ -35,8 +35,12 @@ async function authenticate(req, res, next) {
       return res.status(401).json({ code: 1, message: '账号已被停用或不存在' });
     }
 
-    if (decoded.tv !== undefined && user.token_version !== undefined && decoded.tv !== user.token_version) {
-      return res.status(401).json({ code: 1, message: '令牌已失效，请重新登录' });
+    // Reject tokens issued before token_version was introduced (no tv field),
+    // or tokens whose version doesn't match the current user version
+    if (user.token_version !== undefined) {
+      if (decoded.tv === undefined || decoded.tv !== user.token_version) {
+        return res.status(401).json({ code: 1, message: '令牌已失效，请重新登录' });
+      }
     }
 
     req.user = decoded; // { username, roles, tv, iat, exp }
