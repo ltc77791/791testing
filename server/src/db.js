@@ -124,7 +124,7 @@ async function initCollections() {
       password: hash,
       roles: ['admin'],
       is_active: true,
-      token_version: 1,
+      token_version: 2,
       created_at: new Date(),
       last_login: null,
     });
@@ -138,6 +138,17 @@ async function initCollections() {
   );
   if (migratedCount.modifiedCount > 0) {
     console.log(`  Migrated ${migratedCount.modifiedCount} users: added token_version`);
+  }
+
+  // One-time: force invalidate all existing JWTs by bumping token_version to 2
+  // This ensures tokens issued with tv=1 (from previous deployment) are also rejected.
+  // Safe to run repeatedly: only affects users still at version 1.
+  const bumpResult = await database.collection('users').updateMany(
+    { token_version: 1 },
+    { $set: { token_version: 2 } }
+  );
+  if (bumpResult.modifiedCount > 0) {
+    console.log(`  Force-invalidated sessions for ${bumpResult.modifiedCount} users (token_version 1→2)`);
   }
 
   console.log('Collections and indexes initialized');

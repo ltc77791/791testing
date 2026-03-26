@@ -45,7 +45,7 @@ async function createUser(req, res) {
       password: hash,
       roles: userRoles,
       is_active: true,
-      token_version: 1,
+      token_version: 2,
       created_at: new Date(),
       last_login: null,
     };
