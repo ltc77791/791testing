@@ -1,7 +1,7 @@
 const { Router } = require('express');
 const authenticate = require('../middleware/auth');
 const { validate, schemas } = require('../utils/validate');
-const { login, changePassword, logout, wxLogin, wxBind, wxUnbind } = require('../handlers/auth');
+const { login, changePassword, logout, wxLogin, wxBind, wxUnbind, me } = require('../handlers/auth');
 
 const router = Router();
 
@@ -22,5 +22,8 @@ router.post('/wx-bind', wxBind);
 
 // POST /api/auth/wx-unbind — requires login (解绑微信)
 router.post('/wx-unbind', authenticate, wxUnbind);
+
+// GET /api/auth/me — requires login (session verification)
+router.get('/me', authenticate, me);
 
 module.exports = router;

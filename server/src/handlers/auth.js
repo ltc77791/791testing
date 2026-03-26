@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const https = require('https');
 const config = require('../config');
 const { getDB } = require('../db');
@@ -47,15 +48,15 @@ async function login(req, res) {
       { $set: { last_login: new Date() } }
     );
 
-    // Generate JWT
-    const payload = { username: user.username, roles: user.roles };
+    // Generate JWT (include token_version for revocation support)
+    const payload = { username: user.username, roles: user.roles, tv: user.token_version || 1 };
     const token = jwt.sign(payload, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
 
     // Set JWT in HttpOnly Cookie
     res.cookie('token', token, {
       httpOnly: true,
       secure: config.nodeEnv === 'production',
-      sameSite: 'lax',
+      sameSite: 'strict',
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
     });
 
@@ -95,10 +96,10 @@ async function changePassword(req, res) {
     const hash = await bcrypt.hash(newPassword, 10);
     await db.collection('users').updateOne(
       { _id: user._id },
-      { $set: { password: hash } }
+      { $set: { password: hash }, $inc: { token_version: 1 } }
     );
 
-    res.json({ code: 0, message: '密码修改成功' });
+    res.json({ code: 0, message: '密码修改成功，请重新登录' });
   } catch (err) {
     console.error('Change password error:', err);
     res.status(500).json({ code: 1, message: '服务器错误' });
@@ -138,7 +139,15 @@ async function wxLogin(req, res) {
     const user = await db.collection('users').findOne({ openid: openId, is_active: true });
 
     if (!user) {
-      return res.json({ code: 0, data: { needBind: true, openId } });
+      // Generate a temporary bind token instead of exposing openId
+      const bindToken = crypto.randomBytes(32).toString('hex');
+      await db.collection('bind_tokens').insertOne({
+        token: bindToken,
+        openId,
+        created_at: new Date(),
+        expires_at: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes TTL
+      });
+      return res.json({ code: 0, data: { needBind: true, bindToken } });
     }
 
     // 更新登录时间
@@ -147,8 +156,8 @@ async function wxLogin(req, res) {
       { $set: { last_login: new Date() } }
     );
 
-    // 签发 JWT
-    const payload = { username: user.username, roles: user.roles };
+    // 签发 JWT (include token_version)
+    const payload = { username: user.username, roles: user.roles, tv: user.token_version || 1 };
     const token = jwt.sign(payload, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
 
     res.json({
@@ -167,23 +176,28 @@ async function wxLogin(req, res) {
 
 /**
  * POST /api/auth/wx-bind
- * Body: { code, username, password }
+ * Body: { bindToken, username, password }
  * 验证账号密码后绑定 openId，返回 JWT
  */
 async function wxBind(req, res) {
   try {
-    const { code, username, password } = req.body;
-    if (!code || !username || !password) {
-      return res.status(400).json({ code: 1, message: 'code、用户名和密码不能为空' });
+    const { bindToken, username, password } = req.body;
+    if (!bindToken || !username || !password) {
+      return res.status(400).json({ code: 1, message: 'bindToken、用户名和密码不能为空' });
     }
 
-    const wxRes = await code2Session(code);
-    if (wxRes.errcode) {
-      return res.status(400).json({ code: 1, message: `微信登录失败: ${wxRes.errmsg}` });
-    }
-
-    const openId = wxRes.openid;
     const db = getDB();
+
+    // Resolve bindToken to openId
+    const tokenDoc = await db.collection('bind_tokens').findOneAndDelete({
+      token: bindToken,
+      expires_at: { $gt: new Date() },
+    });
+    if (!tokenDoc) {
+      return res.status(400).json({ code: 1, message: '绑定令牌无效或已过期，请重新扫码' });
+    }
+
+    const openId = tokenDoc.openId;
 
     // 查找用户
     const user = await db.collection('users').findOne({ username });
@@ -220,8 +234,8 @@ async function wxBind(req, res) {
       created_at: new Date(),
     });
 
-    // 签发 JWT
-    const payload = { username: user.username, roles: user.roles };
+    // 签发 JWT (include token_version)
+    const payload = { username: user.username, roles: user.roles, tv: user.token_version || 1 };
     const token = jwt.sign(payload, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
 
     res.json({
@@ -275,4 +289,15 @@ async function wxUnbind(req, res) {
   }
 }
 
-module.exports = { login, changePassword, logout, wxLogin, wxBind, wxUnbind };
+/**
+ * GET /api/auth/me
+ * Returns current authenticated user info (for session verification).
+ */
+async function me(req, res) {
+  res.json({
+    code: 0,
+    data: { username: req.user.username, roles: req.user.roles },
+  });
+}
+
+module.exports = { login, changePassword, logout, wxLogin, wxBind, wxUnbind, me };

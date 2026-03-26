@@ -71,8 +71,17 @@ Page({
       return;
     }
 
+    const app = getApp();
+    const bindToken = app.globalData.bindToken;
+    if (!bindToken) {
+      wx.showToast({ title: '绑定令牌已过期，请重试', icon: 'none' });
+      // Re-trigger silent login to get a fresh bindToken
+      await app.silentLogin();
+      return;
+    }
+
     this.setData({ binding: true });
-    const res = await api.auth.bind(username, password);
+    const res = await api.auth.bind(bindToken, username, password);
     this.setData({ binding: false });
 
     if (res.code === 0) {

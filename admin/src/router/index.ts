@@ -100,7 +100,9 @@ const router = createRouter({
 })
 
 // 路由守卫
-router.beforeEach((to, _from, next) => {
+let sessionVerified = false
+
+router.beforeEach(async (to, _from, next) => {
   const authStore = useAuthStore()
 
   // 只在初次加载（刷新页面且内存空）时从 localStorage 恢复
@@ -120,6 +122,15 @@ router.beforeEach((to, _from, next) => {
   // 未登录 → 跳转登录页
   if (!authStore.isLoggedIn) {
     return next('/login')
+  }
+
+  // Verify session with server on first non-public navigation
+  if (!sessionVerified) {
+    sessionVerified = true
+    const valid = await authStore.verifySession()
+    if (!valid) {
+      return next('/login')
+    }
   }
 
   // 角色权限检查

@@ -1,6 +1,7 @@
 const { ObjectId } = require('mongodb');
 const { getDB } = require('../db');
 const { checkAndNotifyStockAlert } = require('../utils/subscribe-message');
+const { escapeRegex } = require('../utils/escape-regex');
 
 /**
  * 为低价值备件自动生成序列号，格式: nucyyyymmdd0001
@@ -31,14 +32,15 @@ async function generateAutoSN() {
 async function listInventory(req, res) {
   try {
     const db = getDB();
-    const { part_no, subsidiary, status, keyword, page = 1, pageSize = 20 } = req.query;
+    const { part_no, subsidiary, status, contract_no, keyword, page = 1, pageSize = 20 } = req.query;
 
     const filter = {};
     if (part_no) filter.part_no = part_no;
     if (subsidiary) filter.subsidiary = subsidiary;
+    if (contract_no) filter.contract_no = contract_no;
     if (status !== undefined) filter.status = Number(status);
     if (keyword) {
-      const regex = { $regex: keyword, $options: 'i' };
+      const regex = { $regex: escapeRegex(keyword), $options: 'i' };
       filter.$or = [
         { serial_number: regex },
         { part_no: regex },
@@ -353,6 +355,15 @@ async function batchImport(req, res) {
 
       batchSNSet.add(sn);
 
+      // 入库时间：优先使用导入数据中的值，为空则取当前时间
+      let inboundTime = now;
+      if (item.inbound_time) {
+        const parsed = new Date(item.inbound_time);
+        if (!isNaN(parsed.getTime())) {
+          inboundTime = parsed;
+        }
+      }
+
       validDocs.push({
         part_no: item.part_no,
         part_name: partType.part_name,
@@ -363,7 +374,7 @@ async function batchImport(req, res) {
         condition: cond,
         contract_no: item.contract_no,
         status: 0,
-        inbound_time: now,
+        inbound_time: inboundTime,
         inbound_operator: req.user.username,
         outbound_time: null,
         receiver: null,

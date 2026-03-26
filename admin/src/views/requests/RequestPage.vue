@@ -116,7 +116,7 @@
             v-model="listFilters.status"
             placeholder="申请状态"
             clearable
-            style="width: 140px"
+            style="width: 120px"
             @change="handleListSearch"
           >
             <el-option label="待审批" value="pending" />
@@ -124,53 +124,73 @@
             <el-option label="已驳回" value="rejected" />
             <el-option label="已撤回" value="cancelled" />
           </el-select>
-          <el-button style="margin-left: 12px" @click="handleListReset">重置</el-button>
+          <el-button @click="handleListReset">重置</el-button>
         </div>
 
-        <!-- 申请列表 -->
-        <el-table :data="listData" v-loading="listLoading" border stripe style="width: 100%">
-          <el-table-column label="申请时间" min-width="160">
-            <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
+        <!-- 申请列表（按申请项展开，每行一个备件） -->
+        <el-table
+          :data="flatRows"
+          v-loading="listLoading"
+          border
+          stripe
+          size="small"
+          class="compact-table"
+          style="width: 100%"
+          :span-method="spanMethod"
+        >
+          <el-table-column label="申请时间" width="135" show-overflow-tooltip>
+            <template #default="{ row }">{{ formatTime(row._created_at) }}</template>
           </el-table-column>
-          <el-table-column label="申请明细" min-width="220">
+          <el-table-column label="项目号" min-width="90" show-overflow-tooltip>
+            <template #default="{ row }">{{ row._project_no || '-' }}</template>
+          </el-table-column>
+          <el-table-column label="出库原因" width="75" align="center">
+            <template #default="{ row }">{{ row._outbound_reason || '-' }}</template>
+          </el-table-column>
+          <el-table-column prop="part_no" label="备件编号" min-width="95" show-overflow-tooltip />
+          <el-table-column prop="part_name" label="备件名称" min-width="95" show-overflow-tooltip />
+          <el-table-column label="序列号" min-width="120" show-overflow-tooltip>
             <template #default="{ row }">
-              <span v-for="(it, i) in row.items" :key="i">
-                {{ it.part_name || it.part_no }} x{{ it.quantity }}
-                <span v-if="i < row.items.length - 1">; </span>
-              </span>
+              <span v-if="row.serial_numbers?.length">{{ row.serial_numbers.join(', ') }}</span>
+              <span v-else style="color: #909399">-</span>
             </template>
           </el-table-column>
-          <el-table-column prop="project_no" label="项目号" min-width="130">
-            <template #default="{ row }">{{ row.project_no || '-' }}</template>
+          <el-table-column prop="quantity" label="申请数量" width="65" align="center" />
+          <el-table-column label="审批时间" width="135" show-overflow-tooltip>
+            <template #default="{ row }">{{ row._approved_at ? formatTime(row._approved_at) : '-' }}</template>
           </el-table-column>
-          <el-table-column prop="project_location" label="项目地点" min-width="140" />
-          <el-table-column prop="outbound_reason" label="出库原因" width="100" align="center">
-            <template #default="{ row }">{{ row.outbound_reason || '-' }}</template>
+          <el-table-column label="审批人" width="70" show-overflow-tooltip>
+            <template #default="{ row }">{{ row._approved_by || '-' }}</template>
           </el-table-column>
-          <el-table-column label="状态" width="100" align="center">
+          <el-table-column label="审批结果" width="80" align="center">
             <template #default="{ row }">
-              <el-tag :type="statusTagType(row.status)" size="small">
-                {{ statusLabel(row.status) }}
+              <el-tag v-if="row._status === 'approved'" :type="row._approval_type === 'partial' ? 'warning' : 'success'" size="small">
+                {{ row._approval_type === 'partial' ? '部分通过' : '全量通过' }}
               </el-tag>
+              <el-tag v-else-if="row._status === 'rejected'" type="danger" size="small">已驳回</el-tag>
+              <el-tag v-else-if="row._status === 'cancelled'" type="info" size="small">已撤回</el-tag>
+              <el-tag v-else type="warning" size="small">待审批</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="approved_by" label="审批人" width="100">
-            <template #default="{ row }">{{ row.approved_by || '-' }}</template>
-          </el-table-column>
-          <el-table-column label="审批时间" min-width="160">
-            <template #default="{ row }">{{ row.approved_at ? formatTime(row.approved_at) : '-' }}</template>
-          </el-table-column>
-          <el-table-column prop="reject_reason" label="驳回原因" min-width="140">
-            <template #default="{ row }">{{ row.reject_reason || '-' }}</template>
-          </el-table-column>
-          <el-table-column label="操作" width="140" fixed="right">
+          <el-table-column label="审批数量" width="65" align="center">
             <template #default="{ row }">
-              <el-button size="small" @click="openDetail(row)">详情</el-button>
+              <template v-if="row._status === 'approved'">
+                <span :class="{ 'partial-qty': row.approved_quantity < row.quantity }">
+                  {{ row.approved_quantity ?? row.quantity }}
+                </span>
+              </template>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="90" fixed="right" align="center">
+            <template #default="{ row }">
+              <el-button size="small" link type="primary" @click="openDetail(row._request)">详情</el-button>
               <el-button
-                v-if="row.status === 'pending'"
+                v-if="row._status === 'pending'"
                 size="small"
+                link
                 type="danger"
-                @click="handleCancel(row)"
+                @click="handleCancel(row._request)"
               >
                 撤回
               </el-button>
@@ -194,11 +214,14 @@
     </el-tabs>
 
     <!-- 申请详情弹窗 -->
-    <el-dialog v-model="detailVisible" title="申请详情" width="650px">
+    <el-dialog v-model="detailVisible" title="申请详情" width="750px">
       <el-descriptions v-if="detailData" :column="2" border>
         <el-descriptions-item label="申请人">{{ detailData.applicant }}</el-descriptions-item>
-        <el-descriptions-item label="状态">
-          <el-tag :type="statusTagType(detailData.status)" size="small">
+        <el-descriptions-item label="审批结果">
+          <el-tag v-if="detailData.status === 'approved'" :type="detailData.approval_type === 'partial' ? 'warning' : 'success'" size="small">
+            {{ detailData.approval_type === 'partial' ? '部分通过' : '全量通过' }}
+          </el-tag>
+          <el-tag v-else :type="statusTagType(detailData.status)" size="small">
             {{ statusLabel(detailData.status) }}
           </el-tag>
         </el-descriptions-item>
@@ -218,30 +241,37 @@
 
       <el-table
         v-if="detailData"
-        :data="detailData.items"
+        :data="detailItemRows"
         border
         stripe
         style="width: 100%; margin-top: 16px"
       >
-        <el-table-column prop="part_no" label="备件编号" min-width="130" />
-        <el-table-column prop="part_name" label="备件名称" min-width="140" />
-        <el-table-column prop="quantity" label="申请数量" width="100" align="center" />
-        <el-table-column label="价值类型" width="90" align="center">
+        <el-table-column prop="part_no" label="备件编号" min-width="120" />
+        <el-table-column prop="part_name" label="备件名称" min-width="130" />
+        <el-table-column label="序列号" min-width="200">
           <template #default="{ row }">
-            <el-tag :type="(row.value_type || '高价值') === '高价值' ? 'danger' : 'info'" size="small">
-              {{ row.value_type || '高价值' }}
-            </el-tag>
+            <span v-if="row.serial_numbers?.length">{{ row.serial_numbers.join(', ') }}</span>
+            <span v-else style="color: #909399">-</span>
           </template>
         </el-table-column>
-        <el-table-column label="预留序列号" min-width="200">
+        <el-table-column prop="quantity" label="申请数量" width="85" align="center" />
+        <el-table-column label="审批数量" width="85" align="center">
           <template #default="{ row }">
-            <template v-if="(row.value_type || '高价值') === '高价值'">
-              <span v-if="row.serial_numbers?.length">
-                {{ row.serial_numbers.join(', ') }}
+            <template v-if="detailData!.status === 'approved'">
+              <span :class="{ 'partial-qty': row.approved_quantity < row.quantity }">
+                {{ row.approved_quantity ?? row.quantity }}
               </span>
-              <span v-else>-</span>
             </template>
-            <span v-else style="color: #909399">低价值备件，无需序列号</span>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="审批序列号" min-width="200">
+          <template #default="{ row }">
+            <template v-if="detailData!.status === 'approved'">
+              <span v-if="row.approved_serial_numbers?.length">{{ row.approved_serial_numbers.join(', ') }}</span>
+              <span v-else style="color: #909399">-</span>
+            </template>
+            <span v-else>-</span>
           </template>
         </el-table-column>
       </el-table>
@@ -254,7 +284,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete } from '@element-plus/icons-vue'
 import type { FormInstance } from 'element-plus'
@@ -270,6 +300,8 @@ interface RequestItem {
   part_name?: string
   quantity: number
   serial_numbers?: string[]
+  approved_quantity?: number
+  approved_serial_numbers?: string[]
 }
 
 interface RequestRecord {
@@ -277,13 +309,37 @@ interface RequestRecord {
   applicant: string
   status: string
   items: RequestItem[]
+  approved_items?: RequestItem[]
+  approval_type?: string
   project_location: string
+  project_no?: string
+  outbound_reason?: string
   remark: string
   created_at: string
   updated_at: string
   approved_by: string | null
   approved_at: string | null
   reject_reason: string | null
+}
+
+interface FlatRow {
+  _request: RequestRecord
+  _requestId: string
+  _created_at: string
+  _project_no: string
+  _outbound_reason: string
+  _approved_at: string | null
+  _approved_by: string | null
+  _status: string
+  _approval_type: string
+  _rowSpan: number
+  _rowIndex: number
+  part_no: string
+  part_name: string
+  serial_numbers: string[]
+  quantity: number
+  approved_quantity?: number
+  approved_serial_numbers?: string[]
 }
 
 const activeTab = ref('create')
@@ -329,7 +385,6 @@ async function handleSubmit() {
     })
     ElMessage.success('申请提交成功')
     resetForm()
-    // 自动切换到列表查看
     activeTab.value = 'list'
     fetchList()
   } finally {
@@ -354,6 +409,52 @@ const listTotal = ref(0)
 const listFilters = reactive({
   status: '' as string,
 })
+
+// 展平为每行一个备件项
+const flatRows = computed<FlatRow[]>(() => {
+  const rows: FlatRow[] = []
+  for (const req of listData.value) {
+    const displayItems = (req.status === 'approved' && req.approved_items?.length)
+      ? req.approved_items
+      : req.items
+    const itemCount = displayItems.length || 1
+
+    displayItems.forEach((item, idx) => {
+      rows.push({
+        _request: req,
+        _requestId: req._id,
+        _created_at: req.created_at,
+        _project_no: req.project_no || '',
+        _outbound_reason: req.outbound_reason || '',
+        _approved_at: req.approved_at,
+        _approved_by: req.approved_by,
+        _status: req.status,
+        _approval_type: req.approval_type || '',
+        _rowSpan: itemCount,
+        _rowIndex: idx,
+        part_no: item.part_no,
+        part_name: item.part_name || item.part_no,
+        serial_numbers: item.serial_numbers || [],
+        quantity: item.quantity,
+        approved_quantity: item.approved_quantity,
+        approved_serial_numbers: item.approved_serial_numbers,
+      })
+    })
+  }
+  return rows
+})
+
+// 合并请求级别列的单元格
+const REQUEST_LEVEL_COLS = [0, 1, 2, 7, 8, 9, 11] // 申请时间, 项目号, 出库原因, 审批时间, 审批人, 审批结果, 操作
+function spanMethod({ row, columnIndex }: { row: FlatRow; column: any; rowIndex: number; columnIndex: number }) {
+  if (REQUEST_LEVEL_COLS.includes(columnIndex)) {
+    if (row._rowIndex === 0) {
+      return { rowspan: row._rowSpan, colspan: 1 }
+    }
+    return { rowspan: 0, colspan: 0 }
+  }
+  return { rowspan: 1, colspan: 1 }
+}
 
 async function fetchList() {
   listLoading.value = true
@@ -385,6 +486,14 @@ function handleListReset() {
 // ======== 详情弹窗 ========
 const detailVisible = ref(false)
 const detailData = ref<RequestRecord | null>(null)
+
+const detailItemRows = computed<RequestItem[]>(() => {
+  if (!detailData.value) return []
+  if (detailData.value.status === 'approved' && detailData.value.approved_items?.length) {
+    return detailData.value.approved_items
+  }
+  return detailData.value.items
+})
 
 function openDetail(row: RequestRecord) {
   detailData.value = row
@@ -462,14 +571,29 @@ onMounted(() => {
 
 <style scoped>
 .filter-bar {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
+  gap: 8px;
+}
+.compact-table {
+  font-size: 13px;
+}
+.compact-table :deep(.el-table__header th) {
+  font-size: 13px;
+  padding: 6px 0;
+}
+.compact-table :deep(.el-table__body td) {
+  padding: 4px 0;
 }
 .pagination-wrapper {
-  margin-top: 16px;
+  margin-top: 12px;
   display: flex;
   justify-content: flex-end;
+}
+.partial-qty {
+  color: #e6a23c;
+  font-weight: bold;
 }
 </style>

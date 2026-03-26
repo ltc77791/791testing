@@ -17,6 +17,10 @@ Page({
     loading: false,
     hasMore: true,
     statusFilter: '',
+    // 详情弹窗
+    showDetailDialog: false,
+    detailRequest: null,
+    detailItems: [],
     // 创建表单
     partTypes: [],
     formItems: [{ part_no: '', quantity: 1 }],
@@ -81,11 +85,17 @@ Page({
     this.setData({ loading: false });
 
     if (res.code === 0) {
-      const newItems = (res.data.items || []).map(item => ({
-        ...item,
-        statusLabel: statusText(item.status),
-        createdAtText: formatTime(item.created_at),
-      }));
+      const newItems = (res.data.items || []).map(item => {
+        const displayItems = (item.status === 'approved' && item.approved_items && item.approved_items.length)
+          ? item.approved_items
+          : item.items;
+        return {
+          ...item,
+          statusLabel: statusText(item.status),
+          createdAtText: formatTime(item.created_at),
+          displayItems,
+        };
+      });
       this.setData({
         items: reset ? newItems : [...this.data.items, ...newItems],
         total: res.data.total || 0,
@@ -94,6 +104,29 @@ Page({
       });
     }
   },
+
+  // 查看申请详情
+  onTapRequest(e) {
+    const id = e.currentTarget.dataset.id;
+    const item = this.data.items.find(i => i._id === id);
+    if (!item) return;
+
+    const detailItems = (item.status === 'approved' && item.approved_items && item.approved_items.length)
+      ? item.approved_items
+      : item.items;
+
+    this.setData({
+      showDetailDialog: true,
+      detailRequest: item,
+      detailItems,
+    });
+  },
+
+  closeDetail() {
+    this.setData({ showDetailDialog: false, detailRequest: null });
+  },
+
+  noop() {},
 
   // 撤回申请
   async onCancel(e) {

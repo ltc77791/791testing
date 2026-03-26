@@ -40,7 +40,7 @@ function clearToken() {
 /**
  * 封装 wx.request 为 Promise
  */
-function request({ url, method = 'GET', data, showLoading = true }) {
+function request({ url, method = 'GET', data, showLoading = true, timeout = 10000 }) {
   return new Promise((resolve, reject) => {
     if (showLoading) {
       wx.showLoading({ title: '加载中...', mask: true });
@@ -57,6 +57,7 @@ function request({ url, method = 'GET', data, showLoading = true }) {
       method,
       data,
       header,
+      timeout,
       success(res) {
         if (showLoading) wx.hideLoading();
 
@@ -121,7 +122,14 @@ const auth = {
    */
   async wxLogin() {
     try {
-      const { code } = await wx.login();
+      const loginRes = await Promise.race([
+        wx.login(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('wx.login timeout')), 5000)),
+      ]);
+      const code = loginRes.code;
+      if (!code) {
+        return { code: 1, message: 'wx.login 未返回 code' };
+      }
       const result = await requestSilent({
         url: '/api/auth/wx-login',
         method: 'POST',
@@ -139,14 +147,14 @@ const auth = {
 
   /**
    * 绑定系统账号
+   * @param {string} bindToken - 从 wxLogin 返回的临时绑定令牌
    */
-  async bind(username, password) {
+  async bind(bindToken, username, password) {
     try {
-      const { code } = await wx.login();
       const result = await request({
         url: '/api/auth/wx-bind',
         method: 'POST',
-        data: { code, username, password },
+        data: { bindToken, username, password },
       });
       if (result.code === 0 && result.data && result.data.token) {
         setToken(result.data.token);

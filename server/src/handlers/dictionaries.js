@@ -1,5 +1,6 @@
 const { ObjectId } = require('mongodb');
 const { getDB } = require('../db');
+const { escapeRegex } = require('../utils/escape-regex');
 
 const VALID_CATEGORIES = ['project_no', 'contract_no'];
 const CATEGORY_LABELS = { project_no: '项目号', contract_no: '采购合同号' };
@@ -18,7 +19,7 @@ async function listDictionaries(req, res) {
       filter.is_active = is_active;
     }
     if (keyword) {
-      filter.label = { $regex: keyword, $options: 'i' };
+      filter.label = { $regex: escapeRegex(keyword), $options: 'i' };
     }
 
     const skip = (Number(page) - 1) * Number(pageSize);

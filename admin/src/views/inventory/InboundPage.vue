@@ -116,6 +116,11 @@
           <el-table-column prop="warehouse" label="仓库" min-width="120" />
           <el-table-column prop="condition" label="成色" width="100" />
           <el-table-column prop="contract_no" label="采购合同号" min-width="130" />
+          <el-table-column label="入库时间" min-width="150">
+            <template #default="{ row }">
+              {{ row.inbound_time ? formatTime(row.inbound_time) : '默认导入时间' }}
+            </template>
+          </el-table-column>
         </el-table>
 
         <div v-if="batchPreview.length > 0">
@@ -229,6 +234,7 @@ interface BatchItem {
   warehouse: string
   condition: string
   contract_no: string
+  inbound_time: string
 }
 
 const activeTab = ref('single')
@@ -329,9 +335,9 @@ function resetSingleForm() {
 
 // ======== 批量导入: 下载模板 ========
 function downloadTemplate() {
-  const headers = [['备件编号', '序列号', '子公司', '仓库', '成色', '采购合同号']]
+  const headers = [['备件编号', '序列号', '子公司', '仓库', '成色', '采购合同号', '入库时间']]
   const ws = XLSX.utils.aoa_to_sheet(headers)
-  ws['!cols'] = [{ wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 10 }, { wch: 20 }]
+  ws['!cols'] = [{ wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 10 }, { wch: 20 }, { wch: 20 }]
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, '批量导入模板')
   XLSX.writeFile(wb, '批量导入模板.xlsx')
@@ -353,6 +359,29 @@ const COLUMN_MAP: Record<string, string> = {
   'condition': 'condition',
   '采购合同号': 'contract_no',
   'contract_no': 'contract_no',
+  '入库时间': 'inbound_time',
+  'inbound_time': 'inbound_time',
+}
+
+function parseExcelDate(value: any): string {
+  if (!value && value !== 0) return ''
+  // Excel serial number (e.g. 44927)
+  if (typeof value === 'number') {
+    const date = new Date(Math.round((value - 25569) * 86400 * 1000))
+    if (!isNaN(date.getTime())) return date.toISOString()
+  }
+  // String date
+  const str = String(value).trim()
+  if (!str) return ''
+  const d = new Date(str)
+  if (!isNaN(d.getTime())) return d.toISOString()
+  // Try common Chinese format: 2024/01/15 or 2024-01-15
+  const m = str.match(/^(\d{4})[/\-.](\d{1,2})[/\-.](\d{1,2})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/)
+  if (m) {
+    const d2 = new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0))
+    if (!isNaN(d2.getTime())) return d2.toISOString()
+  }
+  return ''
 }
 
 function handleFileChange(file: UploadFile) {
@@ -388,7 +417,11 @@ function handleFileChange(file: UploadFile) {
         for (const [key, value] of Object.entries(raw)) {
           const field = COLUMN_MAP[key.trim()]
           if (field) {
-            mapped[field] = String(value).trim()
+            if (field === 'inbound_time') {
+              mapped[field] = parseExcelDate(value)
+            } else {
+              mapped[field] = String(value).trim()
+            }
           }
         }
 

@@ -1,60 +1,107 @@
 const { getDB } = require('../db');
+const { escapeRegex } = require('../utils/escape-regex');
+
+const MAX_EXPORT_ROWS = 50000;
 
 /**
- * Convert array of objects to CSV string
+ * Convert array of objects to CSV string.
+ * columns: array of { key, label } or plain strings (used as both key and label).
  */
 function toCsv(rows, columns) {
-  if (!rows.length) return columns.join(',') + '\n';
+  const cols = columns.map(c => (typeof c === 'string' ? { key: c, label: c } : c));
+  const header = cols.map(c => escapeCsvField(c.label)).join(',');
 
-  const header = columns.join(',');
+  if (!rows.length) return header + '\n';
+
   const lines = rows.map(row =>
-    columns.map(col => {
-      const val = row[col];
-      if (val == null) return '';
-      const str = String(val);
-      // Escape fields containing comma, quote, or newline
-      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-        return '"' + str.replace(/"/g, '""') + '"';
-      }
-      return str;
-    }).join(',')
+    cols.map(col => escapeCsvField(row[col.key])).join(',')
   );
 
   return header + '\n' + lines.join('\n') + '\n';
 }
 
+function escapeCsvField(val) {
+  if (val == null) return '';
+  const str = String(val);
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return '"' + str.replace(/"/g, '""') + '"';
+  }
+  return str;
+}
+
 /**
  * GET /api/export/inventory
- * 导出在库库存明细 CSV
+ * 导出库存明细 CSV — 支持筛选参数，列与库存管理页面一致
+ * Query: ?part_no=&subsidiary=&status=0|1&keyword=
  */
 async function exportInventory(req, res) {
   try {
     const db = getDB();
+    const { part_no, subsidiary, status, contract_no, keyword } = req.query;
+
+    const filter = {};
+    if (part_no) filter.part_no = part_no;
+    if (subsidiary) filter.subsidiary = subsidiary;
+    if (contract_no) filter.contract_no = contract_no;
+    if (status !== undefined) filter.status = Number(status);
+    if (keyword) {
+      const regex = { $regex: escapeRegex(keyword), $options: 'i' };
+      filter.$or = [
+        { serial_number: regex },
+        { part_no: regex },
+        { part_name: regex },
+        { warehouse: regex },
+      ];
+    }
 
     const items = await db.collection('inventory')
-      .find({ status: 0 })
-      .sort({ part_no: 1, serial_number: 1 })
-      .project({
-        _id: 0,
-        part_no: 1,
-        part_name: 1,
-        serial_number: 1,
-        condition: 1,
-        subsidiary: 1,
-        warehouse: 1,
-        inbound_time: 1,
-        inbound_operator: 1,
-      })
+      .find(filter)
+      .sort({ inbound_time: -1 })
+      .limit(MAX_EXPORT_ROWS)
       .toArray();
 
-    // Format dates
+    const truncated = items.length >= MAX_EXPORT_ROWS;
+
+    function fmtDate(d) {
+      if (!d) return '';
+      return new Date(d).toISOString().slice(0, 19).replace('T', ' ');
+    }
+
     const rows = items.map(r => ({
-      ...r,
-      inbound_time: r.inbound_time ? new Date(r.inbound_time).toISOString().slice(0, 19).replace('T', ' ') : '',
+      serial_number: r.serial_number || '',
+      part_no: r.part_no || '',
+      part_name: r.part_name || '',
+      subsidiary: r.subsidiary || '',
+      warehouse: r.warehouse || '',
+      condition: r.condition || '',
+      contract_no: r.contract_no || '',
+      status: r.status === 0 ? '在库' : '已出库',
+      inbound_time: fmtDate(r.inbound_time),
+      inbound_operator: r.inbound_operator || '',
+      outbound_time: fmtDate(r.outbound_time),
+      receiver: r.receiver || '',
+      project_location: r.project_location || '',
     }));
 
-    const columns = ['part_no', 'part_name', 'serial_number', 'condition', 'subsidiary', 'warehouse', 'inbound_time', 'inbound_operator'];
-    const csv = toCsv(rows, columns);
+    const columns = [
+      { key: 'serial_number', label: '序列号' },
+      { key: 'part_no', label: '备件编号' },
+      { key: 'part_name', label: '备件名称' },
+      { key: 'subsidiary', label: '子公司' },
+      { key: 'warehouse', label: '仓库' },
+      { key: 'condition', label: '成色' },
+      { key: 'contract_no', label: '采购合同号' },
+      { key: 'status', label: '状态' },
+      { key: 'inbound_time', label: '入库时间' },
+      { key: 'inbound_operator', label: '入库人' },
+      { key: 'outbound_time', label: '出库时间' },
+      { key: 'receiver', label: '领用人' },
+      { key: 'project_location', label: '项目/用途' },
+    ];
+    let csv = toCsv(rows, columns);
+    if (truncated) {
+      csv += `\n# 导出已达上限 ${MAX_EXPORT_ROWS} 条，请缩小筛选范围后重试\n`;
+    }
 
     // Add UTF-8 BOM for Excel compatibility
     const bom = '\uFEFF';
@@ -69,49 +116,83 @@ async function exportInventory(req, res) {
 
 /**
  * GET /api/export/requests
- * 导出申请/出库记录 CSV
+ * 导出申请/审批记录 CSV — 按物料行展开，与审批管理页面12列一致
+ * Query: ?start_date=&end_date= (可选日期范围筛选)
  */
 async function exportRequests(req, res) {
   try {
     const db = getDB();
+    const { start_date, end_date } = req.query;
 
-    const items = await db.collection('requests')
-      .find({})
+    const filter = {};
+    if (start_date || end_date) {
+      filter.created_at = {};
+      if (start_date) filter.created_at.$gte = new Date(start_date);
+      if (end_date) filter.created_at.$lte = new Date(end_date + 'T23:59:59.999Z');
+    }
+
+    const requests = await db.collection('requests')
+      .find(filter)
       .sort({ created_at: -1 })
-      .project({
-        _id: 1,
-        part_no: 1,
-        part_name: 1,
-        qty: 1,
-        approved_qty: 1,
-        approved_sns: 1,
-        status: 1,
-        project_location: 1,
-        applicant: 1,
-        approver: 1,
-        reject_reason: 1,
-        created_at: 1,
-        approved_at: 1,
-      })
+      .limit(MAX_EXPORT_ROWS)
       .toArray();
 
-    const rows = items.map(r => ({
-      id: r._id,
-      part_no: r.part_no || '',
-      part_name: r.part_name || '',
-      qty: r.qty || 0,
-      approved_qty: r.approved_qty || 0,
-      approved_sns: Array.isArray(r.approved_sns) ? r.approved_sns.join(';') : '',
-      status: r.status || '',
-      project_location: r.project_location || '',
-      applicant: r.applicant || '',
-      approver: r.approver || '',
-      reject_reason: r.reject_reason || '',
-      created_at: r.created_at ? new Date(r.created_at).toISOString().slice(0, 19).replace('T', ' ') : '',
-      approved_at: r.approved_at ? new Date(r.approved_at).toISOString().slice(0, 19).replace('T', ' ') : '',
-    }));
+    function approvalResultText(request, itemIndex) {
+      if (request.status === 'rejected') return '已驳回';
+      if (request.status === 'cancelled') return '已撤回';
+      if (request.status === 'pending') return '待审批';
+      // approved
+      if (request.approval_type === 'partial') return '部分通过';
+      return '全量通过';
+    }
 
-    const columns = ['id', 'part_no', 'part_name', 'qty', 'approved_qty', 'approved_sns', 'status', 'project_location', 'applicant', 'approver', 'reject_reason', 'created_at', 'approved_at'];
+    function formatDate(d) {
+      if (!d) return '';
+      return new Date(d).toISOString().slice(0, 19).replace('T', ' ');
+    }
+
+    // Flatten: one row per item in each request
+    const rows = [];
+    for (const r of requests) {
+      const sourceItems = r.approved_items || r.items || [];
+      for (let i = 0; i < sourceItems.length; i++) {
+        const item = sourceItems[i];
+        const sns = item.serial_numbers || [];
+        const approvedQty = item.approved_quantity != null
+          ? item.approved_quantity
+          : (r.status === 'approved' ? item.quantity : 0);
+
+        rows.push({
+          created_at: formatDate(r.created_at),
+          project_no: r.project_no || r.project_location || '',
+          applicant: r.applicant || '',
+          outbound_reason: r.outbound_reason || r.remark || '',
+          part_no: item.part_no || '',
+          part_name: item.part_name || '',
+          serial_numbers: sns.join('; '),
+          quantity: item.quantity || 0,
+          approved_at: formatDate(r.approved_at),
+          approved_by: r.approved_by || '',
+          approval_result: approvalResultText(r, i),
+          approved_quantity: approvedQty,
+        });
+      }
+    }
+
+    const columns = [
+      { key: 'created_at', label: '申请时间' },
+      { key: 'project_no', label: '项目号' },
+      { key: 'applicant', label: '申请人' },
+      { key: 'outbound_reason', label: '出库原因' },
+      { key: 'part_no', label: '备件编号' },
+      { key: 'part_name', label: '备件名称' },
+      { key: 'serial_numbers', label: '序列号' },
+      { key: 'quantity', label: '申请数量' },
+      { key: 'approved_at', label: '审批时间' },
+      { key: 'approved_by', label: '审批人' },
+      { key: 'approval_result', label: '审批结果' },
+      { key: 'approved_quantity', label: '审批数量' },
+    ];
     const csv = toCsv(rows, columns);
 
     const bom = '\uFEFF';
@@ -155,11 +236,12 @@ async function exportAnalytics(req, res) {
     }
     const trendRows = Object.values(monthMap).sort((a, b) => a.month.localeCompare(b.month));
 
-    // Sheet 2: Age detail for in-stock items
+    // Sheet 2: Age detail for in-stock items (capped)
     const ageItems = await db.collection('inventory').aggregate([
       { $match: { status: 0, inbound_time: { $ne: null } } },
       { $addFields: { age_days: { $dateDiff: { startDate: '$inbound_time', endDate: now, unit: 'day' } } } },
       { $sort: { age_days: -1 } },
+      { $limit: MAX_EXPORT_ROWS },
       { $project: { _id: 0, part_no: 1, part_name: 1, serial_number: 1, subsidiary: 1, warehouse: 1, inbound_time: 1, age_days: 1 } },
     ]).toArray();
 
@@ -172,9 +254,22 @@ async function exportAnalytics(req, res) {
     // Combine into one CSV with section headers
     let csv = '\uFEFF';
     csv += '=== 月度出入库趋势 ===\n';
-    csv += toCsv(trendRows, ['month', 'inbound', 'outbound']);
+    csv += toCsv(trendRows, [
+      { key: 'month', label: '月份' },
+      { key: 'inbound', label: '入库数量' },
+      { key: 'outbound', label: '出库数量' },
+    ]);
     csv += '\n=== 库龄明细 ===\n';
-    csv += toCsv(ageRows, ['part_no', 'part_name', 'serial_number', 'subsidiary', 'warehouse', 'inbound_time', 'age_days', 'age_bucket']);
+    csv += toCsv(ageRows, [
+      { key: 'part_no', label: '备件编号' },
+      { key: 'part_name', label: '备件名称' },
+      { key: 'serial_number', label: '序列号' },
+      { key: 'subsidiary', label: '子公司' },
+      { key: 'warehouse', label: '仓库' },
+      { key: 'inbound_time', label: '入库时间' },
+      { key: 'age_days', label: '库龄(天)' },
+      { key: 'age_bucket', label: '库龄分组' },
+    ]);
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename="analytics_export.csv"');

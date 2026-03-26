@@ -4,7 +4,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
 const config = require('./config');
-const { connectDB, initCollections } = require('./db');
+const { connectDB, initCollections, migrateApprovedRequests } = require('./db');
 
 const app = express();
 
@@ -15,6 +15,10 @@ app.use(helmet({
 }));
 
 // 2. CORS: 限制白名单，允许携 Cookie
+if (!config.corsOrigin || config.corsOrigin === '*') {
+  console.error('FATAL: CORS_ORIGIN must be set to a specific origin, not "*"');
+  process.exit(1);
+}
 app.use(cors({
   origin: config.corsOrigin,
   credentials: true,
@@ -44,6 +48,7 @@ const loginLimiter = rateLimit({
   message: { code: 1, message: '登录请求过多，请 15 分钟后再试' },
 });
 app.use('/api/auth/login', loginLimiter);
+app.use('/api/auth/wx-bind', loginLimiter);
 
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
@@ -87,6 +92,7 @@ async function start() {
   try {
     await connectDB();
     await initCollections();
+    await migrateApprovedRequests();
 
     app.listen(config.port, () => {
       console.log(`Server running on http://localhost:${config.port}`);

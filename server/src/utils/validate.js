@@ -108,9 +108,23 @@ const schemas = {
       value_type: validValueType.default('高价值').messages({
         'any.only': '价值类型必须为: 高价值, 低价值',
       }),
+      model: Joi.string().trim().max(100).allow('').default('').messages({
+        'string.max': '型号长度不能超过100位',
+      }),
+      unit_price: Joi.number().min(0).allow(null, '').default(null).messages({
+        'number.min': '单价不能为负数',
+      }),
       min_stock: Joi.number().integer().min(0).default(0).messages({
         'number.min': '安全库存不能为负数',
       }),
+    }).custom((value, helpers) => {
+      // 高价值备件型号为必填
+      if (value.value_type === '高价值' && (!value.model || !value.model.trim())) {
+        return helpers.error('any.custom', { message: '高价值备件的型号为必填项' });
+      }
+      return value;
+    }).messages({
+      'any.custom': '{{#message}}',
     }),
 
     update: Joi.object({
@@ -118,11 +132,34 @@ const schemas = {
       value_type: validValueType.messages({
         'any.only': '价值类型必须为: 高价值, 低价值',
       }),
+      model: Joi.string().trim().max(100).allow('').messages({
+        'string.max': '型号长度不能超过100位',
+      }),
+      unit_price: Joi.number().min(0).allow(null, '').messages({
+        'number.min': '单价不能为负数',
+      }),
       min_stock: Joi.number().integer().min(0).messages({
         'number.min': '安全库存不能为负数',
       }),
     }).min(1).messages({
       'object.min': '没有需要更新的字段',
+    }),
+
+    batchImport: Joi.object({
+      items: Joi.array().items(
+        Joi.object({
+          part_no: Joi.string().trim().max(50).required(),
+          part_name: Joi.string().trim().max(100).required(),
+          value_type: validValueType.default('高价值'),
+          model: Joi.string().trim().max(100).allow('').default(''),
+          unit_price: Joi.number().min(0).allow(null, '').default(null),
+          min_stock: Joi.number().integer().min(0).default(0),
+        })
+      ).min(1).max(500).required().messages({
+        'array.min': '导入数据不能为空',
+        'array.max': '单次导入不能超过500条',
+        'any.required': '导入数据不能为空',
+      }),
     }),
   },
 
