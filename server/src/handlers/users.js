@@ -45,6 +45,7 @@ async function createUser(req, res) {
       password: hash,
       roles: userRoles,
       is_active: true,
+      token_version: 1,
       created_at: new Date(),
       last_login: null,
     };
@@ -101,9 +102,16 @@ async function updateUser(req, res) {
       changes.push('重置密码');
     }
 
+    // Increment token_version to invalidate existing sessions when password or active status changes
+    const needsRevocation = password !== undefined || (is_active !== undefined && !is_active);
+    const updateOp = { $set: updateFields };
+    if (needsRevocation) {
+      updateOp.$inc = { token_version: 1 };
+    }
+
     await db.collection('users').updateOne(
       { username },
-      { $set: updateFields }
+      updateOp
     );
 
     // Log

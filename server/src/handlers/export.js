@@ -1,4 +1,7 @@
 const { getDB } = require('../db');
+const { escapeRegex } = require('../utils/escape-regex');
+
+const MAX_EXPORT_ROWS = 50000;
 
 /**
  * Convert array of objects to CSV string.
@@ -42,7 +45,7 @@ async function exportInventory(req, res) {
     if (contract_no) filter.contract_no = contract_no;
     if (status !== undefined) filter.status = Number(status);
     if (keyword) {
-      const regex = { $regex: keyword, $options: 'i' };
+      const regex = { $regex: escapeRegex(keyword), $options: 'i' };
       filter.$or = [
         { serial_number: regex },
         { part_no: regex },
@@ -54,7 +57,10 @@ async function exportInventory(req, res) {
     const items = await db.collection('inventory')
       .find(filter)
       .sort({ inbound_time: -1 })
+      .limit(MAX_EXPORT_ROWS)
       .toArray();
+
+    const truncated = items.length >= MAX_EXPORT_ROWS;
 
     function fmtDate(d) {
       if (!d) return '';
@@ -92,7 +98,10 @@ async function exportInventory(req, res) {
       { key: 'receiver', label: '领用人' },
       { key: 'project_location', label: '项目/用途' },
     ];
-    const csv = toCsv(rows, columns);
+    let csv = toCsv(rows, columns);
+    if (truncated) {
+      csv += `\n# 导出已达上限 ${MAX_EXPORT_ROWS} 条，请缩小筛选范围后重试\n`;
+    }
 
     // Add UTF-8 BOM for Excel compatibility
     const bom = '\uFEFF';
@@ -108,14 +117,24 @@ async function exportInventory(req, res) {
 /**
  * GET /api/export/requests
  * 导出申请/审批记录 CSV — 按物料行展开，与审批管理页面12列一致
+ * Query: ?start_date=&end_date= (可选日期范围筛选)
  */
 async function exportRequests(req, res) {
   try {
     const db = getDB();
+    const { start_date, end_date } = req.query;
+
+    const filter = {};
+    if (start_date || end_date) {
+      filter.created_at = {};
+      if (start_date) filter.created_at.$gte = new Date(start_date);
+      if (end_date) filter.created_at.$lte = new Date(end_date + 'T23:59:59.999Z');
+    }
 
     const requests = await db.collection('requests')
-      .find({})
+      .find(filter)
       .sort({ created_at: -1 })
+      .limit(MAX_EXPORT_ROWS)
       .toArray();
 
     function approvalResultText(request, itemIndex) {
@@ -217,11 +236,12 @@ async function exportAnalytics(req, res) {
     }
     const trendRows = Object.values(monthMap).sort((a, b) => a.month.localeCompare(b.month));
 
-    // Sheet 2: Age detail for in-stock items
+    // Sheet 2: Age detail for in-stock items (capped)
     const ageItems = await db.collection('inventory').aggregate([
       { $match: { status: 0, inbound_time: { $ne: null } } },
       { $addFields: { age_days: { $dateDiff: { startDate: '$inbound_time', endDate: now, unit: 'day' } } } },
       { $sort: { age_days: -1 } },
+      { $limit: MAX_EXPORT_ROWS },
       { $project: { _id: 0, part_no: 1, part_name: 1, serial_number: 1, subsidiary: 1, warehouse: 1, inbound_time: 1, age_days: 1 } },
     ]).toArray();
 

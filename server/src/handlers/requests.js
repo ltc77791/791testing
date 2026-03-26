@@ -41,26 +41,36 @@ async function createRequest(req, res) {
         return res.status(400).json({ code: 1, message: `备件类型 ${item.part_no} 不存在` });
       }
 
-      // Find available inventory (status=0, not reserved)
-      const available = await db.collection('inventory')
-        .find({ part_no: item.part_no, status: 0, reserved_request_id: '' })
-        .limit(item.quantity)
-        .toArray();
-
-      if (available.length < item.quantity) {
-        if (reservedSNs.length > 0) {
-          await db.collection('inventory').updateMany(
-            { serial_number: { $in: reservedSNs } },
-            { $set: { reserved_request_id: '' } }
-          );
+      // Atomically reserve inventory one by one using findOneAndUpdate
+      const sns = [];
+      for (let i = 0; i < item.quantity; i++) {
+        const reserved = await db.collection('inventory').findOneAndUpdate(
+          { part_no: item.part_no, status: 0, reserved_request_id: '' },
+          { $set: { reserved_request_id: '__pending__' } },
+          { returnDocument: 'after' }
+        );
+        if (!reserved) {
+          // Not enough stock — release what we just reserved in this item
+          if (sns.length > 0) {
+            await db.collection('inventory').updateMany(
+              { serial_number: { $in: sns } },
+              { $set: { reserved_request_id: '' } }
+            );
+          }
+          // Also release any previously reserved SNs from earlier items
+          if (reservedSNs.length > 0) {
+            await db.collection('inventory').updateMany(
+              { serial_number: { $in: reservedSNs } },
+              { $set: { reserved_request_id: '' } }
+            );
+          }
+          return res.status(400).json({
+            code: 1,
+            message: `${item.part_no} 库存不足，需要 ${item.quantity}，可用 ${i}`,
+          });
         }
-        return res.status(400).json({
-          code: 1,
-          message: `${item.part_no} 库存不足，需要 ${item.quantity}，可用 ${available.length}`,
-        });
+        sns.push(reserved.serial_number);
       }
-
-      const sns = available.map(r => r.serial_number);
       reservedSNs.push(...sns);
 
       requestItems.push({
@@ -104,9 +114,9 @@ async function createRequest(req, res) {
     const result = await db.collection('requests').insertOne(requestDoc);
     const requestId = result.insertedId.toString();
 
-    // Reserve the inventory records
+    // Update the temporary placeholder with the actual request ID
     await db.collection('inventory').updateMany(
-      { serial_number: { $in: reservedSNs } },
+      { serial_number: { $in: reservedSNs }, reserved_request_id: '__pending__' },
       { $set: { reserved_request_id: requestId } }
     );
 

@@ -1,4 +1,5 @@
 const { getDB } = require('../db');
+const { escapeRegex } = require('../utils/escape-regex');
 
 /**
  * GET /api/part-types
@@ -12,7 +13,7 @@ async function listPartTypes(req, res) {
 
     const filter = {};
     if (keyword) {
-      const regex = { $regex: keyword, $options: 'i' };
+      const regex = { $regex: escapeRegex(keyword), $options: 'i' };
       filter.$or = [{ part_no: regex }, { part_name: regex }];
     }
 

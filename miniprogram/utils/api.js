@@ -139,14 +139,14 @@ const auth = {
 
   /**
    * 绑定系统账号
+   * @param {string} bindToken - 从 wxLogin 返回的临时绑定令牌
    */
-  async bind(username, password) {
+  async bind(bindToken, username, password) {
     try {
-      const { code } = await wx.login();
       const result = await request({
         url: '/api/auth/wx-bind',
         method: 'POST',
-        data: { code, username, password },
+        data: { bindToken, username, password },
       });
       if (result.code === 0 && result.data && result.data.token) {
         setToken(result.data.token);

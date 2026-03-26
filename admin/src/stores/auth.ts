@@ -46,5 +46,25 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  return { user, isLoggedIn, roles, isAdmin, isManager, login, logout, restoreFromToken }
+  /**
+   * Verify session with server. If invalid, clear local state.
+   * Returns true if session is valid, false otherwise.
+   */
+  async function verifySession(): Promise<boolean> {
+    try {
+      const res: any = await http.get('/auth/me')
+      if (res.code === 0 && res.data) {
+        user.value = res.data
+        localStorage.setItem('sp_user', JSON.stringify(res.data))
+        return true
+      }
+    } catch {
+      // Session invalid
+    }
+    user.value = null
+    localStorage.removeItem('sp_user')
+    return false
+  }
+
+  return { user, isLoggedIn, roles, isAdmin, isManager, login, logout, restoreFromToken, verifySession }
 })

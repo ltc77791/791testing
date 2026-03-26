@@ -1,6 +1,7 @@
 const { ObjectId } = require('mongodb');
 const { getDB } = require('../db');
 const { checkAndNotifyStockAlert } = require('../utils/subscribe-message');
+const { escapeRegex } = require('../utils/escape-regex');
 
 /**
  * 为低价值备件自动生成序列号，格式: nucyyyymmdd0001
@@ -39,7 +40,7 @@ async function listInventory(req, res) {
     if (contract_no) filter.contract_no = contract_no;
     if (status !== undefined) filter.status = Number(status);
     if (keyword) {
-      const regex = { $regex: keyword, $options: 'i' };
+      const regex = { $regex: escapeRegex(keyword), $options: 'i' };
       filter.$or = [
         { serial_number: regex },
         { part_no: regex },

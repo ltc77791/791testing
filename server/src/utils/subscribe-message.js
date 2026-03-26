@@ -8,11 +8,11 @@ const https = require('https');
 const config = require('../config');
 const { getDB } = require('../db');
 
-// 模板 ID 配置（与小程序端保持一致）
+// 模板 ID 从配置读取
 const TEMPLATE_IDS = {
-  STOCK_ALERT: 'vopU72-_cp3VgTejH4OvJwvTPdmZw0U07oqnrwFPf_Q',
-  APPROVAL_RESULT: 'giSmlLFMc32RwQY2xCAo4Lnf4ZzurdzcXMMkhr-rIBQ',
-  REQUEST_SUBMIT: '9fsxaUqwRByLo6Ed6RQlkMOENU_FWunc9766WN1eB2E',
+  STOCK_ALERT: config.wxTemplateIds.stockAlert,
+  APPROVAL_RESULT: config.wxTemplateIds.approvalResult,
+  REQUEST_SUBMIT: config.wxTemplateIds.requestSubmit,
 };
 
 // access_token 缓存

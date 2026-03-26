@@ -9,6 +9,7 @@ App({
   globalData: {
     user: null,     // { username, roles }
     isLoggedIn: false,
+    bindToken: null, // temporary token for wx-bind flow
     // 订阅消息模板 ID
     tmplIds: {
       STOCK_ALERT: 'vopU72-_cp3VgTejH4OvJwvTPdmZw0U07oqnrwFPf_Q',
@@ -36,9 +37,11 @@ App({
       if (result.code === 0 && result.data && !result.data.needBind) {
         this.globalData.user = result.data.user;
         this.globalData.isLoggedIn = true;
+        this.globalData.bindToken = null;
       } else {
         this.globalData.user = null;
         this.globalData.isLoggedIn = false;
+        this.globalData.bindToken = (result.data && result.data.bindToken) || null;
       }
     } catch (err) {
       console.error('静默登录失败:', err);

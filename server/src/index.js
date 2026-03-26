@@ -15,6 +15,10 @@ app.use(helmet({
 }));
 
 // 2. CORS: 限制白名单，允许携 Cookie
+if (!config.corsOrigin || config.corsOrigin === '*') {
+  console.error('FATAL: CORS_ORIGIN must be set to a specific origin, not "*"');
+  process.exit(1);
+}
 app.use(cors({
   origin: config.corsOrigin,
   credentials: true,
@@ -44,6 +48,7 @@ const loginLimiter = rateLimit({
   message: { code: 1, message: '登录请求过多，请 15 分钟后再试' },
 });
 app.use('/api/auth/login', loginLimiter);
+app.use('/api/auth/wx-bind', loginLimiter);
 
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));

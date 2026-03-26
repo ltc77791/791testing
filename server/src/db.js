@@ -11,7 +11,13 @@ async function connectDB() {
   client = new MongoClient(config.mongoUri);
   await client.connect();
   db = client.db();
-  console.log('MongoDB connected:', config.mongoUri);
+  // Log sanitized connection info (hide credentials if present)
+  try {
+    const url = new URL(config.mongoUri);
+    console.log('MongoDB connected:', `${url.host}${url.pathname}`);
+  } catch {
+    console.log('MongoDB connected');
+  }
   return db;
 }
 
@@ -40,7 +46,7 @@ async function initCollections() {
   const existingNames = existing.map(c => c.name);
 
   const collections = [
-    'users', 'part_types', 'inventory', 'requests', 'sys_logs', 'counters', 'dictionaries'
+    'users', 'part_types', 'inventory', 'requests', 'sys_logs', 'counters', 'dictionaries', 'bind_tokens'
   ];
 
   for (const name of collections) {
@@ -79,6 +85,12 @@ async function initCollections() {
   await logs.createIndex({ category: 1, created_at: -1 });
   await logs.createIndex({ operator: 1 });
 
+  // bind_tokens: TTL auto-cleanup
+  await database.collection('bind_tokens').createIndex(
+    { expires_at: 1 },
+    { expireAfterSeconds: 0 }
+  );
+
   // dictionaries: category + label unique, category index
   const dict = database.collection('dictionaries');
   await dict.createIndex({ category: 1, label: 1 }, { unique: true });
@@ -112,10 +124,20 @@ async function initCollections() {
       password: hash,
       roles: ['admin'],
       is_active: true,
+      token_version: 1,
       created_at: new Date(),
       last_login: null,
     });
     console.log('  Default admin user created (admin / admin123)');
+  }
+
+  // Migrate: add token_version to existing users that don't have it
+  const migratedCount = await database.collection('users').updateMany(
+    { token_version: { $exists: false } },
+    { $set: { token_version: 1 } }
+  );
+  if (migratedCount.modifiedCount > 0) {
+    console.log(`  Migrated ${migratedCount.modifiedCount} users: added token_version`);
   }
 
   console.log('Collections and indexes initialized');
