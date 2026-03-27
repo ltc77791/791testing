@@ -17,6 +17,11 @@ http.interceptors.request.use((config) => {
 // 防止 401 时多个并发请求重复弹消息和跳转
 let isRedirectingToLogin = false
 
+// Allow external code (e.g. hard/soft timeout) to suppress 401 messages
+export function beginAuthRedirect() {
+  isRedirectingToLogin = true
+}
+
 // 响应拦截器: 统一错误处理
 http.interceptors.response.use(
   (res) => res.data,

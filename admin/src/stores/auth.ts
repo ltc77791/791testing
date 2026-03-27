@@ -83,5 +83,13 @@ export const useAuthStore = defineStore('auth', () => {
     return false
   }
 
-  return { user, isLoggedIn, roles, isAdmin, isManager, mustChangePassword, softTimeoutMinutes, hardTimeoutMs, login, logout, restoreFromToken, verifySession }
+  // Clear local state only (no server call). Use when JWT is already expired.
+  function localLogout() {
+    user.value = null
+    mustChangePassword.value = false
+    localStorage.removeItem('sp_user')
+    resetSessionVerified()
+  }
+
+  return { user, isLoggedIn, roles, isAdmin, isManager, mustChangePassword, softTimeoutMinutes, hardTimeoutMs, login, logout, localLogout, restoreFromToken, verifySession }
 })

@@ -152,7 +152,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import { useAuthStore } from '../stores/auth'
-import http from '../utils/http'
+import http, { beginAuthRedirect } from '../utils/http'
 import {
   DataAnalysis, TrendCharts, Timer, User, Files, Collection, Box,
   Download, DocumentAdd, Stamp, Document, UserFilled, ArrowDown,
@@ -292,8 +292,9 @@ function dismissTimeoutWarning() {
 
 function performIdleLogout() {
   stopIdleTracker()
+  beginAuthRedirect()
   ElMessage.warning('由于长时间未操作，已自动登出')
-  authStore.logout()
+  authStore.localLogout()
   router.replace('/login')
 }
 
@@ -329,8 +330,9 @@ function startHardTimeoutTimer() {
   hardTimer = setTimeout(() => {
     stopIdleTracker()
     stopHardTimeoutTimer()
+    beginAuthRedirect()
     ElMessage.warning('登录已过期，请重新登录')
-    authStore.logout()
+    authStore.localLogout()
     router.replace('/login')
   }, delay)
 }
