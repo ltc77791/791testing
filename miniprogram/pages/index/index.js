@@ -37,6 +37,15 @@ Page({
     }
 
     if (app.globalData.isLoggedIn) {
+      // ★ Feature #2: Warn if must change password
+      if (app.globalData.mustChangePassword) {
+        wx.showModal({
+          title: '安全提示',
+          content: '您使用的是默认密码，请尽快在PC管理后台修改密码。',
+          showCancel: false,
+        });
+      }
+
       // operator 不显示首页，直接跳转库存页
       const isOperator = app.hasRole('operator') && !app.hasRole('admin', 'manager');
       if (isOperator) {
@@ -65,11 +74,14 @@ Page({
   },
 
   async onBind() {
-    const { username, password } = this.data;
+    let { username, password } = this.data;
     if (!username || !password) {
       wx.showToast({ title: '请输入用户名和密码', icon: 'none' });
       return;
     }
+
+    // ★ Feature #1: Normalize username to lowercase
+    username = username.toLowerCase().trim();
 
     const app = getApp();
     const bindToken = app.globalData.bindToken;
@@ -88,6 +100,16 @@ Page({
       const app = getApp();
       app.globalData.user = res.data.user;
       app.globalData.isLoggedIn = true;
+      app.globalData.mustChangePassword = !!res.data.must_change_password;
+
+      // ★ Feature #2: Warn user if must change password (mini-program directs to PC)
+      if (res.data.must_change_password) {
+        wx.showModal({
+          title: '安全提示',
+          content: '您使用的是默认密码，请尽快在PC管理后台修改密码。',
+          showCancel: false,
+        });
+      }
 
       this.setData({
         isLoggedIn: true,

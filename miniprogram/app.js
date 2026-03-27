@@ -10,6 +10,7 @@ App({
     user: null,     // { username, roles }
     isLoggedIn: false,
     bindToken: null, // temporary token for wx-bind flow
+    mustChangePassword: false, // ★ Feature #2: Force change password flag
     // 订阅消息模板 ID
     tmplIds: {
       STOCK_ALERT: 'vopU72-_cp3VgTejH4OvJwvTPdmZw0U07oqnrwFPf_Q',
@@ -38,10 +39,12 @@ App({
         this.globalData.user = result.data.user;
         this.globalData.isLoggedIn = true;
         this.globalData.bindToken = null;
+        this.globalData.mustChangePassword = !!result.data.must_change_password;
       } else {
         this.globalData.user = null;
         this.globalData.isLoggedIn = false;
         this.globalData.bindToken = (result.data && result.data.bindToken) || null;
+        this.globalData.mustChangePassword = false;
       }
     } catch (err) {
       console.error('静默登录失败:', err);

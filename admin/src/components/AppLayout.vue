@@ -119,7 +119,7 @@
         <el-input v-model="pwdForm.oldPassword" type="password" show-password placeholder="请输入当前密码" />
       </el-form-item>
       <el-form-item label="新密码" prop="newPassword">
-        <el-input v-model="pwdForm.newPassword" type="password" show-password placeholder="至少6位" />
+        <el-input v-model="pwdForm.newPassword" type="password" show-password placeholder="至少8位，含大小写字母和数字" />
       </el-form-item>
       <el-form-item label="确认密码" prop="confirmPassword">
         <el-input v-model="pwdForm.confirmPassword" type="password" show-password placeholder="再次输入新密码" />
@@ -130,15 +130,29 @@
       <el-button type="primary" :loading="changingPwd" @click="handleChangePwd">确认修改</el-button>
     </template>
   </el-dialog>
+
+  <!-- ★ Feature #5: Soft timeout warning dialog -->
+  <el-dialog
+    v-model="showTimeoutWarning"
+    title="会话即将过期"
+    width="380px"
+    :close-on-click-modal="false"
+  >
+    <p>由于长时间未操作，您的会话将在 <strong>{{ timeoutCountdown }}</strong> 秒后自动登出。</p>
+    <p>点击"继续"以保持登录状态。</p>
+    <template #footer>
+      <el-button type="primary" @click="dismissTimeoutWarning">继续使用</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import { useAuthStore } from '../stores/auth'
-import http from '../utils/http'
+import http, { beginAuthRedirect } from '../utils/http'
 import {
   DataAnalysis, TrendCharts, Timer, User, Files, Collection, Box,
   Download, DocumentAdd, Stamp, Document, UserFilled, ArrowDown,
@@ -167,6 +181,7 @@ const menuMap: Record<string, string> = {
 const currentMenuTitle = computed(() => menuMap[route.path] || '备件管理系统')
 
 async function handleLogout() {
+  stopIdleTracker()
   await authStore.logout()
   router.replace('/login')
 }
@@ -180,11 +195,23 @@ const pwdForm = reactive({
   confirmPassword: '',
 })
 
+// ★ Feature #4: Password complexity rules
+const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/
 const pwdRules = {
   oldPassword: [{ required: true, message: '请输入旧密码', trigger: 'blur' }],
   newPassword: [
     { required: true, message: '请输入新密码', trigger: 'blur' },
-    { min: 6, message: '密码至少6位', trigger: 'blur' },
+    { min: 8, message: '密码至少8位', trigger: 'blur' },
+    {
+      validator: (_rule: any, value: string, callback: any) => {
+        if (value && !passwordPattern.test(value)) {
+          callback(new Error('密码必须包含大写字母、小写字母和数字'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'blur',
+    },
   ],
   confirmPassword: [
     { required: true, message: '请确认新密码', trigger: 'blur' },
@@ -217,6 +244,7 @@ async function handleChangePwd() {
     })
     ElMessage.success('密码修改成功，请重新登录')
     showChangePassword.value = false
+    stopIdleTracker()
     authStore.logout()
     router.replace('/login')
   } catch {
@@ -225,6 +253,103 @@ async function handleChangePwd() {
     changingPwd.value = false
   }
 }
+
+// ── ★ Feature #5: Soft timeout — idle activity tracker ──
+const showTimeoutWarning = ref(false)
+const timeoutCountdown = ref(60)
+let idleTimer: ReturnType<typeof setTimeout> | null = null
+let countdownTimer: ReturnType<typeof setInterval> | null = null
+const WARNING_SECONDS = 60 // Show warning 60s before logout
+
+function getIdleTimeout() {
+  return authStore.softTimeoutMinutes * 60 * 1000
+}
+
+function resetIdleTimer() {
+  if (idleTimer) clearTimeout(idleTimer)
+  if (showTimeoutWarning.value) return // Don't reset if warning is showing
+  idleTimer = setTimeout(() => {
+    // Show warning before auto-logout
+    showTimeoutWarning.value = true
+    timeoutCountdown.value = WARNING_SECONDS
+    countdownTimer = setInterval(() => {
+      timeoutCountdown.value--
+      if (timeoutCountdown.value <= 0) {
+        performIdleLogout()
+      }
+    }, 1000)
+  }, getIdleTimeout() - WARNING_SECONDS * 1000)
+}
+
+function dismissTimeoutWarning() {
+  showTimeoutWarning.value = false
+  if (countdownTimer) {
+    clearInterval(countdownTimer)
+    countdownTimer = null
+  }
+  resetIdleTimer()
+}
+
+function performIdleLogout() {
+  stopIdleTracker()
+  beginAuthRedirect()
+  ElMessage.warning('由于长时间未操作，已自动登出')
+  authStore.localLogout()
+  router.replace('/login')
+}
+
+const activityEvents = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click']
+
+function onUserActivity() {
+  if (!showTimeoutWarning.value) {
+    resetIdleTimer()
+  }
+}
+
+function startIdleTracker() {
+  activityEvents.forEach(evt => document.addEventListener(evt, onUserActivity, { passive: true }))
+  resetIdleTimer()
+}
+
+function stopIdleTracker() {
+  activityEvents.forEach(evt => document.removeEventListener(evt, onUserActivity))
+  if (idleTimer) { clearTimeout(idleTimer); idleTimer = null }
+  if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null }
+  showTimeoutWarning.value = false
+}
+
+// ── ★ Feature #6: Hard timeout — proactive JWT expiry timer ──
+let hardTimer: ReturnType<typeof setTimeout> | null = null
+
+function startHardTimeoutTimer() {
+  stopHardTimeoutTimer()
+  const ms = authStore.hardTimeoutMs
+  if (!ms || ms <= 0) return
+  // Fire slightly early (2s buffer) to ensure we redirect before the JWT actually expires
+  const delay = Math.max(0, ms - 2000)
+  hardTimer = setTimeout(() => {
+    stopIdleTracker()
+    stopHardTimeoutTimer()
+    beginAuthRedirect()
+    ElMessage.warning('登录已过期，请重新登录')
+    authStore.localLogout()
+    router.replace('/login')
+  }, delay)
+}
+
+function stopHardTimeoutTimer() {
+  if (hardTimer) { clearTimeout(hardTimer); hardTimer = null }
+}
+
+onMounted(() => {
+  startIdleTracker()
+  startHardTimeoutTimer()
+})
+
+onUnmounted(() => {
+  stopIdleTracker()
+  stopHardTimeoutTimer()
+})
 </script>
 
 <style scoped>

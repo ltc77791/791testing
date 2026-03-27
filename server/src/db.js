@@ -125,6 +125,9 @@ async function initCollections() {
       roles: ['admin'],
       is_active: true,
       token_version: 2,
+      must_change_password: false,
+      failed_login_attempts: 0,
+      locked_until: null,
       created_at: new Date(),
       last_login: null,
     });
@@ -141,14 +144,21 @@ async function initCollections() {
   }
 
   // One-time: force invalidate all existing JWTs by bumping token_version to 2
-  // This ensures tokens issued with tv=1 (from previous deployment) are also rejected.
-  // Safe to run repeatedly: only affects users still at version 1.
   const bumpResult = await database.collection('users').updateMany(
     { token_version: 1 },
     { $set: { token_version: 2 } }
   );
   if (bumpResult.modifiedCount > 0) {
     console.log(`  Force-invalidated sessions for ${bumpResult.modifiedCount} users (token_version 1→2)`);
+  }
+
+  // ★ Feature #2/#7: Migrate existing users — add must_change_password and lockout fields
+  const mcpMigration = await database.collection('users').updateMany(
+    { must_change_password: { $exists: false } },
+    { $set: { must_change_password: false, failed_login_attempts: 0, locked_until: null } }
+  );
+  if (mcpMigration.modifiedCount > 0) {
+    console.log(`  Migrated ${mcpMigration.modifiedCount} users: added must_change_password, lockout fields`);
   }
 
   console.log('Collections and indexes initialized');

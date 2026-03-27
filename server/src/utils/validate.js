@@ -49,10 +49,11 @@ const schemas = {
         'string.empty': '旧密码不能为空',
         'any.required': '旧密码不能为空',
       }),
-      newPassword: Joi.string().min(6).required().messages({
+      newPassword: Joi.string().min(8).pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/).required().messages({
         'string.empty': '新密码不能为空',
         'any.required': '新密码不能为空',
-        'string.min': '新密码长度不能少于6位',
+        'string.min': '新密码长度不能少于8位',
+        'string.pattern.base': '新密码必须包含大写字母、小写字母和数字',
       }),
     }),
   },
@@ -65,11 +66,7 @@ const schemas = {
         'any.required': '用户名不能为空',
         'string.max': '用户名长度不能超过50位',
       }),
-      password: Joi.string().min(6).max(100).required().messages({
-        'string.empty': '密码不能为空',
-        'any.required': '密码不能为空',
-        'string.min': '密码长度不能少于6位',
-      }),
+      // ★ Feature #2: password field removed — all new users get default password 123456
       roles: validRoles.default(['operator']).messages({
         'any.only': '无效角色，可选: admin, manager, operator',
       }),

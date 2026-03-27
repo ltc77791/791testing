@@ -46,7 +46,10 @@ async function listPartTypes(req, res) {
  */
 async function createPartType(req, res) {
   try {
-    const { part_no, part_name, value_type, model, unit_price, min_stock } = req.body;
+    let { part_no, part_name, value_type, model, unit_price, min_stock } = req.body;
+
+    // ★ Feature #1: Normalize part_no to uppercase
+    if (part_no) part_no = part_no.toUpperCase().trim();
 
     const db = getDB();
 
@@ -247,6 +250,9 @@ async function batchImportPartTypes(req, res) {
       const rowNum = i + 1;
 
       try {
+        // ★ Feature #1: Normalize part_no to uppercase
+        if (item.part_no) item.part_no = item.part_no.toUpperCase().trim();
+
         // 高价值备件型号必填
         const valueType = item.value_type || '高价值';
         if (valueType === '高价值' && (!item.model || !item.model.trim())) {

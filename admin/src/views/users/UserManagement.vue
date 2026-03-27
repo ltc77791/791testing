@@ -36,6 +36,12 @@
           />
         </template>
       </el-table-column>
+      <el-table-column label="锁定" width="70" align="center">
+        <template #default="{ row }">
+          <el-tag v-if="row.locked_until && new Date(row.locked_until) > new Date()" type="danger" size="small">已锁定</el-tag>
+          <el-tag v-else type="success" size="small">正常</el-tag>
+        </template>
+      </el-table-column>
       <el-table-column label="微信" width="70" align="center">
         <template #default="{ row }">
           <el-tag v-if="row.openid" type="success" size="small">已绑定</el-tag>
@@ -52,10 +58,26 @@
           {{ formatTime(row.created_at) }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="200" fixed="right" align="center">
+      <el-table-column label="操作" width="250" fixed="right" align="center">
         <template #default="{ row }">
           <el-button size="small" link type="primary" @click="openEditDialog(row)">编辑</el-button>
-          <el-button size="small" link type="warning" @click="openResetPwdDialog(row)">重置密码</el-button>
+          <el-popconfirm
+            title="确定将密码重置为默认密码 123456？"
+            @confirm="handleResetPwd(row.username)"
+          >
+            <template #reference>
+              <el-button size="small" link type="warning">重置密码</el-button>
+            </template>
+          </el-popconfirm>
+          <el-button
+            v-if="row.locked_until && new Date(row.locked_until) > new Date()"
+            size="small"
+            link
+            type="success"
+            @click="handleUnlock(row.username)"
+          >
+            解锁
+          </el-button>
           <el-button
             v-if="row.openid"
             size="small"
@@ -96,14 +118,10 @@
         <el-form-item label="用户名" prop="username">
           <el-input v-model="form.username" :disabled="isEdit" placeholder="请输入用户名" />
         </el-form-item>
-        <el-form-item v-if="!isEdit" label="密码" prop="password">
-          <el-input
-            v-model="form.password"
-            type="password"
-            show-password
-            placeholder="请输入密码"
-          />
-        </el-form-item>
+        <!-- ★ Feature #2: No password field for create — default password 123456 -->
+        <el-alert v-if="!isEdit" type="info" :closable="false" style="margin-bottom: 12px">
+          新用户默认密码为 <strong>123456</strong>，首次登录需修改密码。
+        </el-alert>
         <el-form-item label="角色" prop="roles">
           <el-select v-model="form.roles" multiple placeholder="请选择角色">
             <el-option label="管理员" value="admin" :disabled="form.roles.includes('operator')" />
@@ -115,29 +133,6 @@
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="submitting" @click="handleSubmit">
-          确定
-        </el-button>
-      </template>
-    </el-dialog>
-
-    <!-- 重置密码弹窗 -->
-    <el-dialog v-model="resetPwdVisible" title="重置密码" width="400px" @close="resetPwdForm.password = ''">
-      <el-form ref="resetPwdRef" :model="resetPwdForm" :rules="resetPwdRules" label-width="80px">
-        <el-form-item label="用户名">
-          <el-input :model-value="resetPwdForm.username" disabled />
-        </el-form-item>
-        <el-form-item label="新密码" prop="password">
-          <el-input
-            v-model="resetPwdForm.password"
-            type="password"
-            show-password
-            placeholder="请输入新密码"
-          />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="resetPwdVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" @click="handleResetPwd">
           确定
         </el-button>
       </template>
@@ -159,6 +154,7 @@ interface UserRecord {
   roles: string[]
   is_active: boolean
   openid?: string
+  locked_until?: string | null
   created_at: string
   last_login: string | null
 }
@@ -174,28 +170,12 @@ const isEdit = ref(false)
 const formRef = ref<FormInstance>()
 const form = reactive({
   username: '',
-  password: '',
   roles: [] as string[],
 })
 
 const formRules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, message: '密码至少 6 位', trigger: 'blur' },
-  ],
   roles: [{ required: true, message: '请选择角色', trigger: 'change', type: 'array' as const }],
-}
-
-// 重置密码
-const resetPwdVisible = ref(false)
-const resetPwdRef = ref<FormInstance>()
-const resetPwdForm = reactive({ username: '', password: '' })
-const resetPwdRules = {
-  password: [
-    { required: true, message: '请输入新密码', trigger: 'blur' },
-    { min: 6, message: '密码至少 6 位', trigger: 'blur' },
-  ],
 }
 
 // ---- 工具函数 ----
@@ -231,7 +211,6 @@ onMounted(fetchUsers)
 function openCreateDialog() {
   isEdit.value = false
   form.username = ''
-  form.password = ''
   form.roles = []
   dialogVisible.value = true
 }
@@ -240,7 +219,6 @@ function openCreateDialog() {
 function openEditDialog(row: UserRecord) {
   isEdit.value = true
   form.username = row.username
-  form.password = ''
   form.roles = [...row.roles]
   dialogVisible.value = true
 }
@@ -256,12 +234,12 @@ async function handleSubmit() {
       await http.patch(`/users/${form.username}`, { roles: form.roles })
       ElMessage.success('用户更新成功')
     } else {
+      // ★ Feature #2: No password — server uses default
       await http.post('/users', {
         username: form.username,
-        password: form.password,
         roles: form.roles,
       })
-      ElMessage.success('用户创建成功')
+      ElMessage.success('用户创建成功，默认密码为 123456')
     }
     dialogVisible.value = false
     fetchUsers()
@@ -285,24 +263,26 @@ async function handleToggleActive(row: UserRecord, val: boolean) {
   }
 }
 
-// ---- 重置密码 ----
-function openResetPwdDialog(row: UserRecord) {
-  resetPwdForm.username = row.username
-  resetPwdForm.password = ''
-  resetPwdVisible.value = true
-}
-
-async function handleResetPwd() {
-  const valid = await resetPwdRef.value?.validate().catch(() => false)
-  if (!valid) return
-
+// ---- ★ Feature #3: 重置密码为默认密码 ----
+async function handleResetPwd(username: string) {
   submitting.value = true
   try {
-    await http.patch(`/users/${resetPwdForm.username}`, { password: resetPwdForm.password })
-    ElMessage.success('密码重置成功')
-    resetPwdVisible.value = false
+    await http.post(`/users/${username}/reset-password`)
+    ElMessage.success('密码已重置为默认密码 123456')
+    fetchUsers()
   } finally {
     submitting.value = false
+  }
+}
+
+// ---- ★ Feature #7: 解锁用户 ----
+async function handleUnlock(username: string) {
+  try {
+    await http.post(`/users/${username}/unlock`)
+    ElMessage.success('用户已解锁')
+    fetchUsers()
+  } catch {
+    // http 拦截器已处理
   }
 }
 
