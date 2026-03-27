@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import router from '../router'
+import { resetSessionVerified } from './session'
 
 const http = axios.create({
   baseURL: '/api',
@@ -13,6 +14,9 @@ http.interceptors.request.use((config) => {
   return config
 })
 
+// 防止 401 时多个并发请求重复弹消息和跳转
+let isRedirectingToLogin = false
+
 // 响应拦截器: 统一错误处理
 http.interceptors.response.use(
   (res) => res.data,
@@ -21,9 +25,24 @@ http.interceptors.response.use(
     const msg = err.response?.data?.message
 
     if (status === 401) {
-      localStorage.removeItem('sp_user') // 清除登录态
-      router.replace('/login')
-      ElMessage.error(msg || '登录已过期，请重新登录')
+      // 清除所有登录态：localStorage + Pinia store
+      localStorage.removeItem('sp_user')
+      // 动态引入 auth store 以避免循环依赖，直接清空 Pinia 状态
+      import('../stores/auth').then(({ useAuthStore }) => {
+        const authStore = useAuthStore()
+        authStore.user = null
+        authStore.mustChangePassword = false
+      })
+      // 重置 session verified 标记，下次登录后需重新验证
+      resetSessionVerified()
+
+      if (!isRedirectingToLogin) {
+        isRedirectingToLogin = true
+        ElMessage.error(msg || '登录已过期，请重新登录')
+        router.replace('/login').finally(() => {
+          isRedirectingToLogin = false
+        })
+      }
     } else if (status === 423) {
       // ★ Feature #7: Account locked
       ElMessage.error(msg || '账户已锁定，请稍后重试')

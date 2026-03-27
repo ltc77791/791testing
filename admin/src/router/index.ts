@@ -1,6 +1,7 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { isSessionVerified, markSessionVerified } from '../utils/session'
 import AppLayout from '../components/AppLayout.vue'
 
 const routes: RouteRecordRaw[] = [
@@ -100,8 +101,6 @@ const router = createRouter({
 })
 
 // 路由守卫
-let sessionVerified = false
-
 router.beforeEach(async (to, _from, next) => {
   const authStore = useAuthStore()
 
@@ -125,8 +124,8 @@ router.beforeEach(async (to, _from, next) => {
   }
 
   // Verify session with server on first non-public navigation
-  if (!sessionVerified) {
-    sessionVerified = true
+  if (!isSessionVerified()) {
+    markSessionVerified()
     const valid = await authStore.verifySession()
     if (!valid) {
       return next('/login')

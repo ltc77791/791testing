@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import http from '../utils/http'
+import { resetSessionVerified } from '../utils/session'
 
 export interface UserInfo {
   username: string
@@ -38,6 +39,7 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = null
       mustChangePassword.value = false
       localStorage.removeItem('sp_user')
+      resetSessionVerified()
     }
   }
 
