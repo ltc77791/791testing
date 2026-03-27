@@ -140,6 +140,7 @@ async function login(req, res) {
         user: { username: user.username, roles: user.roles },
         must_change_password: !!user.must_change_password,
         softTimeoutMinutes: config.softTimeoutMinutes,
+        hardTimeoutMs: parseExpiryToMs(config.jwtExpiresIn),
       },
     });
   } catch (err) {
@@ -419,6 +420,10 @@ async function me(req, res) {
     { username: req.user.username },
     { projection: { must_change_password: 1 } }
   );
+  // Calculate remaining hard timeout from JWT exp claim
+  const hardTimeoutMs = req.user.exp
+    ? Math.max(0, req.user.exp * 1000 - Date.now())
+    : parseExpiryToMs(config.jwtExpiresIn);
   res.json({
     code: 0,
     data: {
@@ -426,6 +431,7 @@ async function me(req, res) {
       roles: req.user.roles,
       must_change_password: !!(user && user.must_change_password),
       softTimeoutMinutes: config.softTimeoutMinutes,
+      hardTimeoutMs,
     },
   });
 }

@@ -13,6 +13,8 @@ export const useAuthStore = defineStore('auth', () => {
   const mustChangePassword = ref(false)
   // ★ Feature #5: Soft timeout minutes (default 15, overridden by server response)
   const softTimeoutMinutes = ref(Number(localStorage.getItem('sp_soft_timeout')) || 15)
+  // ★ Hard timeout: milliseconds until JWT expires (set on login / verifySession)
+  const hardTimeoutMs = ref(0)
 
   const isLoggedIn = computed(() => !!user.value)
   const roles = computed(() => user.value?.roles || [])
@@ -26,6 +28,9 @@ export const useAuthStore = defineStore('auth', () => {
     if (res.data.softTimeoutMinutes) {
       softTimeoutMinutes.value = res.data.softTimeoutMinutes
       localStorage.setItem('sp_soft_timeout', String(res.data.softTimeoutMinutes))
+    }
+    if (res.data.hardTimeoutMs) {
+      hardTimeoutMs.value = res.data.hardTimeoutMs
     }
     localStorage.setItem('sp_user', JSON.stringify(res.data.user))
   }
@@ -65,6 +70,9 @@ export const useAuthStore = defineStore('auth', () => {
           softTimeoutMinutes.value = res.data.softTimeoutMinutes
           localStorage.setItem('sp_soft_timeout', String(res.data.softTimeoutMinutes))
         }
+        if (res.data.hardTimeoutMs) {
+          hardTimeoutMs.value = res.data.hardTimeoutMs
+        }
         return true
       }
     } catch {
@@ -75,5 +83,5 @@ export const useAuthStore = defineStore('auth', () => {
     return false
   }
 
-  return { user, isLoggedIn, roles, isAdmin, isManager, mustChangePassword, softTimeoutMinutes, login, logout, restoreFromToken, verifySession }
+  return { user, isLoggedIn, roles, isAdmin, isManager, mustChangePassword, softTimeoutMinutes, hardTimeoutMs, login, logout, restoreFromToken, verifySession }
 })

@@ -317,12 +317,36 @@ function stopIdleTracker() {
   showTimeoutWarning.value = false
 }
 
+// ── ★ Feature #6: Hard timeout — proactive JWT expiry timer ──
+let hardTimer: ReturnType<typeof setTimeout> | null = null
+
+function startHardTimeoutTimer() {
+  stopHardTimeoutTimer()
+  const ms = authStore.hardTimeoutMs
+  if (!ms || ms <= 0) return
+  // Fire slightly early (2s buffer) to ensure we redirect before the JWT actually expires
+  const delay = Math.max(0, ms - 2000)
+  hardTimer = setTimeout(() => {
+    stopIdleTracker()
+    stopHardTimeoutTimer()
+    ElMessage.warning('登录已过期，请重新登录')
+    authStore.logout()
+    router.replace('/login')
+  }, delay)
+}
+
+function stopHardTimeoutTimer() {
+  if (hardTimer) { clearTimeout(hardTimer); hardTimer = null }
+}
+
 onMounted(() => {
   startIdleTracker()
+  startHardTimeoutTimer()
 })
 
 onUnmounted(() => {
   stopIdleTracker()
+  stopHardTimeoutTimer()
 })
 </script>
 
