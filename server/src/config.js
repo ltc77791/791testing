@@ -10,12 +10,17 @@ module.exports = {
     }
     return process.env.JWT_SECRET;
   })(),
-  jwtExpiresIn: '24h',
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '12h',  // ★ Feature #6: Hard timeout — 修改此值调整JWT过期时间 (如 '2m' 用于测试)
+  // ★ Feature #5: Soft timeout (前端无操作自动登出) — 单位: 分钟
+  softTimeoutMinutes: Number(process.env.SOFT_TIMEOUT_MINUTES) || 15,  // 修改此值或设环境变量 SOFT_TIMEOUT_MINUTES (如 2 用于测试)
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
   nodeEnv: process.env.NODE_ENV || 'development',
   // 微信小程序配置
   wxAppId: process.env.WX_APPID || '',
   wxAppSecret: process.env.WX_APP_SECRET || '',
+  // ★ Feature #7: Account lockout settings
+  maxLoginAttempts: Number(process.env.MAX_LOGIN_ATTEMPTS) || 5,
+  lockoutMinutes: Number(process.env.LOCKOUT_MINUTES) || 30,
   // 订阅消息模板 ID
   wxTemplateIds: {
     stockAlert: process.env.WX_TPL_STOCK_ALERT || 'vopU72-_cp3VgTejH4OvJwvTPdmZw0U07oqnrwFPf_Q',

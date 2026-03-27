@@ -82,6 +82,11 @@ async function inbound(req, res) {
     let { part_no, serial_number, subsidiary, warehouse, condition, contract_no } = req.body;
     const cond = condition;
 
+    // ★ Feature #1: Normalize to uppercase
+    if (part_no) part_no = part_no.toUpperCase().trim();
+    if (serial_number) serial_number = serial_number.toUpperCase().trim();
+    if (contract_no) contract_no = contract_no.toUpperCase().trim();
+
     const db = getDB();
 
     // Verify part_no exists
@@ -262,7 +267,8 @@ async function editInventory(req, res) {
  */
 async function scanBySN(req, res) {
   try {
-    const { sn } = req.params;
+    // ★ Feature #1: Case-insensitive scan — normalize to uppercase
+    const sn = req.params.sn.toUpperCase().trim();
     const db = getDB();
 
     const record = await db.collection('inventory').findOne({ serial_number: sn });
@@ -314,6 +320,11 @@ async function batchImport(req, res) {
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       const row = i + 1;
+
+      // ★ Feature #1: Normalize to uppercase
+      if (item.part_no) item.part_no = item.part_no.toUpperCase().trim();
+      if (item.serial_number) item.serial_number = item.serial_number.toUpperCase().trim();
+      if (item.contract_no) item.contract_no = item.contract_no.toUpperCase().trim();
 
       if (!item.part_no || !item.subsidiary || !item.warehouse) {
         results.failed++;

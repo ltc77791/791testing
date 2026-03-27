@@ -8,8 +8,10 @@ export interface UserInfo {
 }
 
 export const useAuthStore = defineStore('auth', () => {
-  // 依靠存在 user 来判断是否登录（Token 现由浏览器 HttpOnly Cookie 自动管理）
   const user = ref<UserInfo | null>(JSON.parse(localStorage.getItem('sp_user') || 'null'))
+  const mustChangePassword = ref(false)
+  // ★ Feature #5: Soft timeout minutes (default 15, overridden by server response)
+  const softTimeoutMinutes = ref(Number(localStorage.getItem('sp_soft_timeout')) || 15)
 
   const isLoggedIn = computed(() => !!user.value)
   const roles = computed(() => user.value?.roles || [])
@@ -19,7 +21,11 @@ export const useAuthStore = defineStore('auth', () => {
   async function login(username: string, password: string) {
     const res: any = await http.post('/auth/login', { username, password })
     user.value = res.data.user
-    // 仅存放不敏感的结构化数据用于刷新页面回显
+    mustChangePassword.value = !!res.data.must_change_password
+    if (res.data.softTimeoutMinutes) {
+      softTimeoutMinutes.value = res.data.softTimeoutMinutes
+      localStorage.setItem('sp_soft_timeout', String(res.data.softTimeoutMinutes))
+    }
     localStorage.setItem('sp_user', JSON.stringify(res.data.user))
   }
 
@@ -30,11 +36,11 @@ export const useAuthStore = defineStore('auth', () => {
       console.error('Logout request failed', e)
     } finally {
       user.value = null
+      mustChangePassword.value = false
       localStorage.removeItem('sp_user')
     }
   }
 
-  // 因为信息存在 localStorage('sp_user')，不再需要解析 Token 恢复
   function restoreFromToken() {
     const saved = localStorage.getItem('sp_user')
     if (saved) {
@@ -46,16 +52,17 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  /**
-   * Verify session with server. If invalid, clear local state.
-   * Returns true if session is valid, false otherwise.
-   */
   async function verifySession(): Promise<boolean> {
     try {
       const res: any = await http.get('/auth/me')
       if (res.code === 0 && res.data) {
-        user.value = res.data
-        localStorage.setItem('sp_user', JSON.stringify(res.data))
+        user.value = { username: res.data.username, roles: res.data.roles }
+        localStorage.setItem('sp_user', JSON.stringify(user.value))
+        mustChangePassword.value = !!res.data.must_change_password
+        if (res.data.softTimeoutMinutes) {
+          softTimeoutMinutes.value = res.data.softTimeoutMinutes
+          localStorage.setItem('sp_soft_timeout', String(res.data.softTimeoutMinutes))
+        }
         return true
       }
     } catch {
@@ -66,5 +73,5 @@ export const useAuthStore = defineStore('auth', () => {
     return false
   }
 
-  return { user, isLoggedIn, roles, isAdmin, isManager, login, logout, restoreFromToken, verifySession }
+  return { user, isLoggedIn, roles, isAdmin, isManager, mustChangePassword, softTimeoutMinutes, login, logout, restoreFromToken, verifySession }
 })

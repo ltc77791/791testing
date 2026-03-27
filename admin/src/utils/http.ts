@@ -24,6 +24,9 @@ http.interceptors.response.use(
       localStorage.removeItem('sp_user') // 清除登录态
       router.replace('/login')
       ElMessage.error(msg || '登录已过期，请重新登录')
+    } else if (status === 423) {
+      // ★ Feature #7: Account locked
+      ElMessage.error(msg || '账户已锁定，请稍后重试')
     } else if (status === 403) {
       ElMessage.error(msg || '无权限执行此操作')
     } else if (status === 400) {

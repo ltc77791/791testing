@@ -19,6 +19,9 @@ async function createRequest(req, res) {
     const requestItems = [];
 
     for (const item of items) {
+      // ★ Feature #1: Normalize part_no to uppercase
+      if (item.part_no) item.part_no = item.part_no.toUpperCase().trim();
+
       if (!item.part_no || !item.quantity || item.quantity < 1) {
         // Rollback any reservations made so far
         if (reservedSNs.length > 0) {
